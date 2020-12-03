@@ -4,13 +4,13 @@ clc, clear all, close all
 % x = 1:1:10000;
 % y = 40*ones(1,10000)';
 % setOccupancy(map,[x' y], zeros(10000,1))
-image = imread('map.png');
+image = imread('map_large.png');
 grayimage = rgb2gray(image);
-map = binaryOccupancyMap(grayimage);
+map = binaryOccupancyMap(grayimage,3);
 
 
 figure
-show(map), ylim([230 270])
+show(map)
 fig=gcf;
 fig.Units='normalized';
 fig.OuterPosition=[0 0 1 1];
