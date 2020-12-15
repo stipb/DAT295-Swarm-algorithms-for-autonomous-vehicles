@@ -7,8 +7,9 @@ sim_length = 20; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [2 3 6];
+init_vel = [3 4 4.5];
 init_ang = [-pi/16 -pi/50 -pi/16];
+init_ang = [0 0 0];
 lane = [1 1 2];
 
 % - Define vehicle -
@@ -52,10 +53,10 @@ poses = zeros(3,num_vehicles);
 
 % - Define initial pose -
 for v_idx = 1:num_vehicles
-   poses(:,v_idx) = [11.5+v_idx*7;246.5;init_ang(v_idx)]; 
+   poses(:,v_idx) = [11.5+v_idx*9;246.5;init_ang(v_idx)]; 
 end
-poses(2,3) = 255.5
-poses(2,2) = 244
+% poses(2,3) = 255.5
+% poses(2,2) = 244
 env.Poses = poses;
 %% Simulation loop
 allRanges = cell(1,num_vehicles);
@@ -63,7 +64,8 @@ ranges_prev = zeros(4,num_vehicles);
 for v_idx = 1:num_vehicles
     ranges_prev(:,v_idx) = lidars{v_idx}();
 end
-
+vk = zeros(1,num_vehicles);
+err_f = zeros(1,num_vehicles);
 vel = zeros(3,num_vehicles);
 poses_prev = poses;
 for idx = 2:numel(time) % simulation loop
@@ -73,8 +75,8 @@ for idx = 2:numel(time) % simulation loop
         
         ranges = lidars{v_idx}(); % Get lidar data
         allRanges{v_idx} = ranges;
-        vel(:,v_idx) = swarmVehicleController(poses(:,v_idx),poses_prev(:,v_idx),ranges,ranges_prev(:,v_idx),init_vel(v_idx),lane(v_idx));
-        ranges_prev(:,v_idx) = ranges; % saverange
+        [vel(:,v_idx), vk(v_idx), err_f(v_idx)]= swarmVehicleController(poses(:,v_idx),poses_prev(:,v_idx),ranges,ranges_prev(:,v_idx),init_vel(v_idx),vel(:,v_idx),vk(v_idx),err_f(v_idx),lane(v_idx));
+        ranges_prev(:,v_idx) = ranges; % save range
     end
     
     % Update poses
@@ -88,9 +90,16 @@ for idx = 2:numel(time) % simulation loop
 end
 
 %% Vehicle controller
-function vel = swarmVehicleController(pose,pose_prev,ranges,ranges_prev,init_vel,lane)
+function [vel, vk, err_f] = swarmVehicleController(pose,pose_prev,ranges,ranges_prev,init_vel,v_prev,vk_prev,err_f_prev,lane)
+    err_f = 0;
     %TODO: implement four wheel kinematic model  
+    
+    % Param:
     dist =2; % meters to side [m]
+    t_hw = 2; % time headway
+    kp = 0.45; %param (from R. Hao et al)
+    kd = 0.25; %param (from R. Hao et al)
+    
     % lidar scan angles: [0 pi/2 pi 3*pi/2]
     a = 1;
     % Stay on the road
@@ -122,13 +131,19 @@ function vel = swarmVehicleController(pose,pose_prev,ranges,ranges_prev,init_vel
 %                 w =0;
 %             end
     end
-
-    if ranges(1) < 1
-        vx = 1;
+    
+    % Trailing:
+    % With Lidar
+    if ranges(1) < 20
+        ttc = ranges(1)/(range_d);
+        pose_x_target = pose(1) + range(1);
+        err_f = pose_x_target - pose(1) - t_hw*v_prev(1); % e_k = x_k-1 - x_k - t_hw*v_k 
+        vk = vk_prev + kp*err_f + kd*diff([err_f_prev err_f]); % vk_prev + k_p*e_k + k_d*e_k
     else
-        vx = init_vel;
+        vk = init_vel;
     end
-    vel = bodyToWorld([vx;0;w], pose);
+
+    vel = bodyToWorld([vk;0;w], pose);
 end
 
 
