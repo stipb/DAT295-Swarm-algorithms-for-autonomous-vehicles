@@ -7,7 +7,7 @@ sim_length = 20; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [3 4 4.5];
+init_vel = [1 2 2];
 init_ang = [-pi/16 -pi/50 -pi/16];
 init_ang = [0 0 0];
 lane = [1 1 2];
@@ -142,6 +142,12 @@ function [vel, vk, err_f] = swarmVehicleController(pose,pose_prev,ranges,ranges_
     else
         vk = init_vel;
     end
+    
+    % Brake
+    if ranges(1) < 3
+        vk = vk*0.7;
+    end
+        
 
     vel = bodyToWorld([vk;0;w], pose);
 end
