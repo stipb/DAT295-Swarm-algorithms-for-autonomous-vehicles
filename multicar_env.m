@@ -7,16 +7,16 @@ sim_length = 20; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [1 2 2];
+init_vel = [3 4 2];
 init_ang = [-pi/16 -pi/50 -pi/16];
 init_ang = [0 0 0];
-lane = [1 1 2];
+lane = [2 1 2];
 
 % - Define vehicle -
 wheel_radius = 0.05;  % Wheel radius [m]
 f_length = 0.25;     % Distance from CG to front wheels [m]
 r_length = 0.25;         % Distance from CG to rear wheels [m]
-vehicle = FourWheelSteering(wheel_radius,[f_length r_length]);
+vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
 
 % - Create environment -
 env = MultiRobotEnv(num_vehicles);
@@ -59,29 +59,52 @@ end
 % poses(2,2) = 244
 env.Poses = poses;
 %% Simulation loop
-allRanges = cell(1,num_vehicles);
-ranges_prev = zeros(4,num_vehicles);
-for v_idx = 1:num_vehicles
-    ranges_prev(:,v_idx) = lidars{v_idx}();
+
+% Create main data struct
+for v_idx=1:num_vehicles
+   vehicles(v_idx) = struct(...
+       'pose',poses(:,v_idx),...
+       'pose_prev',poses(:,v_idx),...
+       'velocity',zeros(3,1),...
+       'velocity_prev',zeros(3,1),...
+       'ranges',zeros(length(lidar.scanAngles),1),...
+       'ranges_prev',lidars{v_idx}(),... % Get lidar data
+       'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',2,'t_hw',3,'error',0),... % Variables for trailing alg
+       'lane_keeping_var',struct('dist',2),... % Variables for lane keeping alg
+       'parameters',struct('lane',1,'desired_vel',init_vel(v_idx),'conn',false),...
+       'messages',zeros(1,num_vehicles)); % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
 end
-vk = zeros(1,num_vehicles);
-err_f = zeros(1,num_vehicles);
-vel = zeros(3,num_vehicles);
-poses_prev = poses;
+
+
+allRanges = cell(1,num_vehicles);
+% ranges_prev = zeros(4,num_vehicles);
+% for v_idx = 1:num_vehicles
+%     vehicles(v_idx).ranges_prev = lidars{v_idx}();
+% %     ranges_prev(:,v_idx) = lidars{v_idx}();
+% end
+% vk = zeros(1,num_vehicles);
+% err_f = zeros(1,num_vehicles);
+% vel = zeros(3,num_vehicles);
+% poses_prev = poses;
 for idx = 2:numel(time) % simulation loop
 
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
         
         ranges = lidars{v_idx}(); % Get lidar data
+        vehicles(v_idx).ranges = ranges;
         allRanges{v_idx} = ranges;
-        [vel(:,v_idx), vk(v_idx), err_f(v_idx)]= swarmVehicleController(poses(:,v_idx),poses_prev(:,v_idx),ranges,ranges_prev(:,v_idx),init_vel(v_idx),vel(:,v_idx),vk(v_idx),err_f(v_idx),lane(v_idx));
-        ranges_prev(:,v_idx) = ranges; % save range
+        vehicles(v_idx) = swarmVehicleController(vehicles,v_idx);
     end
     
     % Update poses
-    poses_prev = poses;
-    poses = poses + vel*sample_time;
+    for v_idx = 1:num_vehicles
+        vehicles(v_idx).pose = vehicles(v_idx).pose + vehicles(v_idx).velocity*sample_time; % Update
+        poses(:,v_idx) = vehicles(v_idx).pose;
+    end
+%     poses_prev = poses;
+%     poses = poses + vel*sample_time;
+    
     
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
@@ -90,38 +113,31 @@ for idx = 2:numel(time) % simulation loop
 end
 
 %% Vehicle controller
-function [vel, vk, err_f] = swarmVehicleController(pose,pose_prev,ranges,ranges_prev,init_vel,v_prev,vk_prev,err_f_prev,lane)
-    err_f = 0;
+function vehicle = swarmVehicleController(vehicles,v_idx)
     %TODO: implement four wheel kinematic model  
-    
-    % Param:
-    dist =2; % meters to side [m]
-    t_hw = 2; % time headway
-    kp = 0.45; %param (from R. Hao et al)
-    kd = 0.25; %param (from R. Hao et al)
-    
+    vehicle = vehicles(v_idx);
     % lidar scan angles: [0 pi/2 pi 3*pi/2]
-    a = 1;
+    a = 0.1;
     % Stay on the road
-    switch lane
+    switch vehicle.parameters.lane
         case 1
-            range = cos(pose(3))*ranges(4);
-            range_prev = cos(pose_prev(3))*ranges_prev(4);
+            range = cos(vehicle.pose(3))*vehicle.ranges(4);
+            range_prev = cos(vehicle.pose_prev(3))*vehicle.ranges_prev(4);
             range_d = diff([range range_prev]);
             
-            err_right = range-dist;
-            if range_d < 0.1
-                a = 4;
-            else
-                a = 1;
-            end
+            err_right = range-vehicle.lane_keeping_var.dist;
+%             if range_d < 0.1
+%                 a = 4;
+%             else
+%                 a = 1;
+%             end
             w = -err_right*abs(range_d)*a;
 
         case 2
-            range = cos(pose(3))*ranges(2);
-            range_prev = cos(pose_prev(3))*ranges_prev(2);
+            range = cos(vehicle.pose(3))*vehicle.ranges(2);
+            range_prev = cos(vehicle.pose_prev(3))*vehicle.ranges_prev(2);
             range_d = diff([range range_prev]);
-            err_right = range-dist;
+            err_right = range-vehicle.lane_keeping_var.dist;
             w = err_right*abs(range_d)*1;
 %             if ranges(2) < 1 % don't crash into left side
 %                 w = -1;
@@ -134,22 +150,24 @@ function [vel, vk, err_f] = swarmVehicleController(pose,pose_prev,ranges,ranges_
     
     % Trailing:
     % With Lidar
-    if ranges(1) < 20
-        ttc = ranges(1)/(range_d);
-        pose_x_target = pose(1) + range(1);
-        err_f = pose_x_target - pose(1) - t_hw*v_prev(1); % e_k = x_k-1 - x_k - t_hw*v_k 
-        vk = vk_prev + kp*err_f + kd*diff([err_f_prev err_f]); % vk_prev + k_p*e_k + k_d*e_k
+    if vehicle.ranges(1) < 10
+        ttc = vehicle.ranges(1)/(range_d);
+        pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
+        err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k 
+        vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
+        vehicle.trailing_var.error = err_f;
     else
-        vk = init_vel;
+        vk = vehicle.parameters.desired_vel;
     end
     
-    % Brake
-    if ranges(1) < 3
+%     Brake
+    if vehicle.ranges(1) < 1
         vk = vk*0.7;
     end
         
 
-    vel = bodyToWorld([vk;0;w], pose);
+    vehicle.velocity = bodyToWorld([vk;0;w], vehicle.pose);
+    vehicle.ranges_prev = vehicle.ranges; % save range
 end
 
 
