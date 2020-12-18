@@ -7,7 +7,7 @@ sim_length = 20; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [3 4 2];
+init_vel = [5 5 3];
 init_ang = [-pi/16 -pi/50 -pi/16];
 init_ang = [0 0 0];
 lane = [2 1 2];
@@ -34,7 +34,7 @@ for v_idx=1:num_vehicles
     lidar = MultiRobotLidarSensor;
     lidar.sensorOffset = [0,0];
     lidar.scanAngles = [0 pi/2 pi 3*pi/2];
-    lidar.maxRange = 20;
+    lidar.maxRange = 30;
     lidar.robotIdx = v_idx;
     lidars{v_idx} = lidar;
     attachLidarSensor(env,lidar);
@@ -71,7 +71,7 @@ for v_idx=1:num_vehicles
        'ranges_prev',lidars{v_idx}(),... % Get lidar data
        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',2,'t_hw',3,'error',0),... % Variables for trailing alg
        'lane_keeping_var',struct('dist',2),... % Variables for lane keeping alg
-       'parameters',struct('lane',1,'desired_vel',init_vel(v_idx),'conn',false),...
+       'parameters',struct('lane',1,'desired_vel',init_vel(v_idx),'conn',false,'sample_time',sample_time),...
        'messages',zeros(1,num_vehicles)); % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
 end
 
@@ -109,7 +109,7 @@ for idx = 2:numel(time) % simulation loop
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
     ylim([240 258])
-    xlim([11 100])
+    xlim([11 150])
 end
 
 %% Vehicle controller
@@ -150,20 +150,26 @@ function vehicle = swarmVehicleController(vehicles,v_idx)
     
     % Trailing:
     % With Lidar
-    if vehicle.ranges(1) < 10
-        ttc = vehicle.ranges(1)/(range_d);
-        pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
-        err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k 
-        vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
-        vehicle.trailing_var.error = err_f;
+    vehicle.ranges(1)
+    if vehicle.ranges(1) < 30
+%         ttc = vehicle.ranges(1)/(range_d)
+%         pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
+        % ACC
+        a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d);
+        vk = a*vehicle.parameters.sample_time;
+        
+        % CACC
+%         err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k 
+%         vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
+%         vehicle.trailing_var.error = err_f;
     else
         vk = vehicle.parameters.desired_vel;
     end
     
 %     Brake
-    if vehicle.ranges(1) < 1
-        vk = vk*0.7;
-    end
+%     if vehicle.ranges(1) < 1
+%         vk = vk*0.7;
+%     end
         
 
     vehicle.velocity = bodyToWorld([vk;0;w], vehicle.pose);
