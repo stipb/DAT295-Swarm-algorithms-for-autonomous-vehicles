@@ -155,8 +155,8 @@ function vehicle = swarmVehicleController(vehicles,v_idx)
 %         ttc = vehicle.ranges(1)/(range_d)
 %         pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
         % ACC
-        a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d);
-        vk = a*vehicle.parameters.sample_time;
+        a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
+        vk = a*vehicle.parameters.sample_time; % Calculate velocity
         
         % CACC
 %         err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k 
