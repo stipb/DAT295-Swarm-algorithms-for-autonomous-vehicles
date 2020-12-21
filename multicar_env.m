@@ -1,16 +1,16 @@
 %% Multi vehicle with lidars
 close all, clc, clear all
 % - Init -
-num_vehicles = 3;
+num_vehicles = 4;
 sample_time = 0.1; % Time step [s]
 sim_length = 30; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [30 30 35]./3.6;
-init_ang = [-pi/16 -pi/50 -pi/16];
+init_vel = [30 30 35 35]./3.6;
+init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
-lane = [2 2 2];
+lane = [2 2 2 2];
 
 % - Define vehicle -
 wheel_radius = 0.05;  % Wheel radius [m]
@@ -53,7 +53,7 @@ poses = zeros(3,num_vehicles);
 
 % - Define initial pose -
 for v_idx = 1:num_vehicles
-   poses(:,v_idx) = [11.5+v_idx*9;251.5;init_ang(v_idx)]; 
+   poses(:,v_idx) = [11.5+v_idx*20;246.5;init_ang(v_idx)]; 
 end
 % poses(2,3) = 255.5
 % poses(2,2) = 244
@@ -72,7 +72,8 @@ for v_idx=1:num_vehicles
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',2,'t_hw',0.1,'error',0),... % Variables for trailing alg
         'lane_keeping_var',struct('dist',2),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',false,'sample_time',sample_time),...
-        'messages',zeros(1,num_vehicles)); % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
+        'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
+        'target',0);
 end
 
 
@@ -119,15 +120,39 @@ function vehicle = swarmVehicleController(vehicles,v_id)
     %TODO: Implement four wheel kinematic model (if we have time)
     %TODO: Implement robot detectors (instead of lidar or with)
     %TODO: Add swarm algorithm
+    %TODO:
+        % - add for y- axis
     vehicle = vehicles(v_id);
     
     num_vehicles = length(vehicles);
-    for v_idx = 1:num_vehicles
-        if v_idx == v_id
-            continue; % Skip ourselfs
+    points_tot = -ones(1,num_vehicles);
+    if vehicle.target == 0
+        for v_idx = 1:num_vehicles % Calculate points
+            if v_idx == v_id
+                continue; % Skip ourselfs
+            end
+            diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1);
+            %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
+            diff_d_vel = vehicles(v_idx).parameters.desired_vel - vehicle.parameters.desired_vel;
+            points_diff_pose = 30*diff_pose(1);
+            points_diff_vel = 1*abs(diff_d_vel);
+            if abs(diff_d_vel) > 10/3.6
+                points_diff_vel = points_diff_vel + 100;
+            end
+            points_tot(v_idx) = points_diff_pose + points_diff_vel;
         end
-        diff_pose = vehicle.pose(1:2) - vehicles(v_idx).pose(1:2);
-        diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
+        % Compare vehicles
+%         tmp = points_tot>0;
+%         points_tot(tmp)
+        points_tot(points_tot<=0) = 10000;
+%         points_tot
+        [points, idx] = min(points_tot);
+        
+        if points < 271  % if any points is too large -> be independent
+            vehicle.target = idx;
+            disp(['Vehicle ' num2str(v_id) ' targets ' num2str(idx)])
+        end
+
     end
     % lidar scan angles: [0 pi/2 pi 3*pi/2]
     a = 0.4;
