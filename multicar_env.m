@@ -126,8 +126,8 @@ function vehicle = swarmVehicleController(vehicles,v_id)
         if v_idx == v_id
             continue; % Skip ourselfs
         end
-        diff_pose = vehicle.pose - vehicles(v_idx).pose;
-        diff_vel = vehicle.velocity - vehicles(v_idx).velocity;
+        diff_pose = vehicle.pose(1:2) - vehicles(v_idx).pose(1:2);
+        diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
     end
     % lidar scan angles: [0 pi/2 pi 3*pi/2]
     a = 0.4;
@@ -163,7 +163,7 @@ function vehicle = swarmVehicleController(vehicles,v_id)
 
         % ACC
         a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-        vk = a*vehicle.parameters.sample_time; % Calculate velocity
+        vx = a*vehicle.parameters.sample_time; % Calculate velocity
         
         % CACC
 %         pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
@@ -171,7 +171,7 @@ function vehicle = swarmVehicleController(vehicles,v_id)
 %         vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
 %         vehicle.trailing_var.error = err_f;
     else
-        vk = vehicle.parameters.desired_vel;
+        vx = vehicle.parameters.desired_vel;
     end
     
 %     Brake
@@ -180,7 +180,7 @@ function vehicle = swarmVehicleController(vehicles,v_id)
 %     end
         
 
-    vehicle.velocity = bodyToWorld([vk;0;w], vehicle.pose);
+    vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose);
     vehicle.ranges_prev = vehicle.ranges; % save range
 end
 
