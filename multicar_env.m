@@ -116,17 +116,19 @@ end
 %% Vehicle controller
 function vehicle = swarmVehicleController(vehicles,v_id)
     acc_on = false;
-    %TODO: implement four wheel kinematic model
+    %TODO: Implement four wheel kinematic model (if we have time)
+    %TODO: Implement robot detectors (instead of lidar or with)
+    %TODO: Add swarm algorithm
     vehicle = vehicles(v_id);
     
-%     num_vehicles = length(vehicles);
-%     for v_idx = 1:num_vehicles
-%         if v_idx == v_id
-%             continue;
-%         end
-%         diff_pose = vehicle.pose - vehicles(v_idx).pose;
-%         diff_vel = vehicle.velocity - vehicles(v_idx).velocity;
-%     end
+    num_vehicles = length(vehicles);
+    for v_idx = 1:num_vehicles
+        if v_idx == v_id
+            continue; % Skip ourselfs
+        end
+        diff_pose = vehicle.pose - vehicles(v_idx).pose;
+        diff_vel = vehicle.velocity - vehicles(v_idx).velocity;
+    end
     % lidar scan angles: [0 pi/2 pi 3*pi/2]
     a = 0.4;
     % Stay on the road
