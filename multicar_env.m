@@ -134,23 +134,13 @@ function vehicle = swarmVehicleController(vehicles,v_id)
             diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1);
             %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
             diff_d_vel = vehicles(v_idx).parameters.desired_vel - vehicle.parameters.desired_vel;
-            points_diff_pose = 30*diff_pose(1);
-            points_diff_vel = 1*abs(diff_d_vel);
-            if abs(diff_d_vel) > 10/3.6
-                points_diff_vel = points_diff_vel + 100;
-            end
-            points_tot(v_idx) = points_diff_pose + points_diff_vel;
+
+        if abs(diff_d_vel) <=5/3.6 && diff_pose(1) <= 100 && diff_pose(1) >= 0% Check if desired speed and location is within allowance
+            vehicle.target = v_idx;
+            disp(['Vehicle ' num2str(v_id) ' targets ' num2str(v_idx)])
+            break;
         end
-        % Compare vehicles
-%         tmp = points_tot>0;
-%         points_tot(tmp)
-        points_tot(points_tot<=0) = 10000;
-%         points_tot
-        [points, idx] = min(points_tot);
         
-        if points < 271  % if any points is too large -> be independent
-            vehicle.target = idx;
-            disp(['Vehicle ' num2str(v_id) ' targets ' num2str(idx)])
         end
 
     end
