@@ -3,11 +3,11 @@ close all, clc, clear all
 % - Init -
 num_vehicles = 4;
 sample_time = 0.1; % Time step [s]
-sim_length = 30; % Simulation time [s]
+sim_length = 10; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [30 30 35 35]./3.6;
+init_vel = [24 30 29 35]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
 lane = [2 2 2 2];
@@ -55,7 +55,7 @@ poses = zeros(3,num_vehicles);
 for v_idx = 1:num_vehicles
    poses(:,v_idx) = [11.5+v_idx*20;246.5;init_ang(v_idx)]; 
 end
-% poses(2,3) = 255.5
+poses(1,3) = 10;
 % poses(2,2) = 244
 env.Poses = poses;
 %% Simulation loop
@@ -122,27 +122,35 @@ function vehicle = swarmVehicleController(vehicles,v_id)
     %TODO: Add swarm algorithm
     %TODO:
         % - add for y- axis
+        
+        
+    max_range = 1000; % [m]
+    vel_tresh = 5; % [km/h]
     vehicle = vehicles(v_id);
-    
     num_vehicles = length(vehicles);
-    points_tot = -ones(1,num_vehicles);
+    
+    min_diff_d_vel = 1000;
+    min_idx = -1;
+    
     if vehicle.target == 0
         for v_idx = 1:num_vehicles % Calculate points
             if v_idx == v_id
                 continue; % Skip ourselfs
             end
-            diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1);
+            diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1); % Difference in meters between vehicles (x-axis)
             %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
             diff_d_vel = vehicles(v_idx).parameters.desired_vel - vehicle.parameters.desired_vel;
-
-        if abs(diff_d_vel) <=5/3.6 && diff_pose(1) <= 100 && diff_pose(1) >= 0% Check if desired speed and location is within allowance
-            vehicle.target = v_idx;
-            disp(['Vehicle ' num2str(v_id) ' targets ' num2str(v_idx)])
-            break;
-        end
-        
+            
+            if (diff_d_vel < min_diff_d_vel) && (diff_pose < max_range) && (abs(diff_d_vel) <=vel_tresh/3.6) && (diff_pose >= 0)
+                min_diff_d_vel = diff_d_vel;
+                min_idx = v_idx;
+            end
         end
 
+    end
+    if  min_idx ~= -1
+        vehicle.target = min_idx;
+        disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
     end
     % lidar scan angles: [0 pi/2 pi 3*pi/2]
     a = 0.4;
