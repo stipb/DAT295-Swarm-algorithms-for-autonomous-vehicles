@@ -40,9 +40,6 @@ for v_idx=1:num_vehicles
     attachLidarSensor(env,lidar);
 end
 
-
-
-
 %% Prep simulation
 time = 0:sample_time:sim_length; % Time array
 poses = zeros(3,num_vehicles);
@@ -76,22 +73,11 @@ for v_idx=1:num_vehicles
         'target',0);
 end
 
-
 allRanges = cell(1,num_vehicles);
-% ranges_prev = zeros(4,num_vehicles);
-% for v_idx = 1:num_vehicles
-%     vehicles(v_idx).ranges_prev = lidars{v_idx}();
-% %     ranges_prev(:,v_idx) = lidars{v_idx}();
-% end
-% vk = zeros(1,num_vehicles);
-% err_f = zeros(1,num_vehicles);
-% vel = zeros(3,num_vehicles);
-% poses_prev = poses;
 for idx = 2:numel(time) % simulation loop
-%     pause(1)
+    
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
-        
         ranges = lidars{v_idx}(); % Get lidar data
         vehicles(v_idx).ranges = ranges;
         allRanges{v_idx} = ranges;
@@ -103,12 +89,13 @@ for idx = 2:numel(time) % simulation loop
         vehicles(v_idx).pose = vehicles(v_idx).pose + vehicles(v_idx).velocity*sample_time; % Update
         poses(:,v_idx) = vehicles(v_idx).pose;
     end
-    %     poses_prev = poses;
-    %     poses = poses + vel*sample_time;
+    
+    %Change lane
     if idx == 90
         vehicles(3).parameters.lane = 1;
         disp('Changed lane')
     end
+    
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
     ylim([240 258])
@@ -120,7 +107,7 @@ function vehicle = swarmVehicleController(vehicles,v_id)
 acc_on = false;
 %TODO: Implement four wheel kinematic model (if we have time)
 %TODO: Implement robot detectors (instead of lidar or with)
-%TODO: Add swarm algorithm (typ klar)
+%TODO: Add swarm algorithm (~done)
 %TODO:
 % - add for y- axis
 
@@ -130,14 +117,16 @@ vel_tresh = 5; % [km/h]
 vehicle = vehicles(v_id);
 num_vehicles = length(vehicles);
 
-
 switch vehicle.parameters.conn
     case true % Connection
-        min_diff_d_vel = 1000;
+        
+        %Init var
+        min_diff_d_vel = 1000; 
         min_idx = -1;
         
-        if vehicle.target == 0
-            for v_idx = 1:num_vehicles % Calculate points
+        % Get target
+        if vehicle.target == 0 % Check if vehicle already have a target
+            for v_idx = 1:num_vehicles % 
                 if v_idx == v_id
                     continue; % Skip ourselfs
                 end
@@ -145,6 +134,8 @@ switch vehicle.parameters.conn
                 %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
                 diff_d_vel = vehicles(v_idx).parameters.desired_vel - vehicle.parameters.desired_vel;
                 
+                % Save vehicle with lowest relative velocity withinh a
+                % certain range
                 if (diff_d_vel < min_diff_d_vel) && (diff_pose < max_range) && (abs(diff_d_vel) <=vel_tresh/3.6) && (diff_pose >= 0)
                     min_diff_d_vel = diff_d_vel;
                     min_idx = v_idx;
@@ -152,48 +143,41 @@ switch vehicle.parameters.conn
             end
             
         end
+        
+        %Update
         if  min_idx ~= -1
             vehicle.target = min_idx;
             disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
         end
         
-        
+        % Follow target
         if vehicle.target ~= 0
             vehicle.parameters.lane = vehicles(vehicle.target).parameters.lane; % Change to target lane
+            
             % CACC
             err_f = vehicles(vehicle.target).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
             vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
             vehicle.trailing_var.error = err_f;
-        else
+        else % Drive at defualt velocity 
             vx = vehicle.parameters.desired_vel;
         end
         
     case false % No connection
         % lidar scan angles: [0 pi/2 pi 3*pi/2]
         
-        % Trailing:
-        % With Lidar
+        % Trailing with lidar
         if acc_on && vehicle.ranges(1) < 60
-            %         ttc = vehicle.ranges(1)/(range_d)
-            
             % ACC
             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
             vx = a*vehicle.parameters.sample_time; % Calculate velocity
-            
-
-        else
+        else % Drive at defualt velocity 
             vx = vehicle.parameters.desired_vel;
         end
 end
-w = lane_keeper(vehicle);
-%     Brake
-%     if vehicle.ranges(1) < 1
-%         vk = vk*0.7;
-%     end
+w = lane_keeper(vehicle); % Get turn angle from lane keeper
 
-
-vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose);
-vehicle.ranges_prev = vehicle.ranges; % save range
+vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose); % To world coordinates
+vehicle.ranges_prev = vehicle.ranges; % Save range
 end
 
 
