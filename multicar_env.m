@@ -3,24 +3,24 @@ close all, clc, clear all
 % - Init -
 num_vehicles = 4;
 sample_time = 0.1; % Time step [s]
-sim_length = 10; % Simulation time [s]
+sim_length = 20; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [24 30 29 35]./3.6;
+init_vel = [26 30 35 40]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
 lane = [2 2 2 2];
 
 % - Define vehicle -
 wheel_radius = 0.05;  % Wheel radius [m]
-f_length = 0.25;     % Distance from CG to front wheels [m]
+f_length = 2;     % Distance from CG to front wheels [m]
 r_length = 0.25;         % Distance from CG to rear wheels [m]
 vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
 
 % - Create environment -
 env = MultiRobotEnv(num_vehicles);
-env.robotRadius = f_length*4;
+env.robotRadius = f_length;
 env.hasWaypoints = false;
 env.plotSensorLines = true;
 load map;
@@ -55,7 +55,7 @@ poses = zeros(3,num_vehicles);
 for v_idx = 1:num_vehicles
     poses(:,v_idx) = [11.5+v_idx*20;246.5;init_ang(v_idx)];
 end
-poses(1,3) = 10;
+% poses(1,3) = 10;
 % poses(2,2) = 244
 env.Poses = poses;
 %% Simulation loop
@@ -70,8 +70,8 @@ for v_idx=1:num_vehicles
         'ranges',zeros(length(lidar.scanAngles),1),...
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',2,'t_hw',0.1,'error',0),... % Variables for trailing alg
-        'lane_keeping_var',struct('dist',2),... % Variables for lane keeping alg
-        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',false,'sample_time',sample_time),...
+        'lane_keeping_var',struct('dist',f_length+2),... % Variables for lane keeping alg
+        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',true,'sample_time',sample_time),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'target',0);
 end
@@ -88,7 +88,7 @@ allRanges = cell(1,num_vehicles);
 % vel = zeros(3,num_vehicles);
 % poses_prev = poses;
 for idx = 2:numel(time) % simulation loop
-    
+%     pause(1)
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
         
@@ -105,8 +105,9 @@ for idx = 2:numel(time) % simulation loop
     end
     %     poses_prev = poses;
     %     poses = poses + vel*sample_time;
-    if idx == 60
-        vehicles(1).parameters.lane = 1;
+    if idx == 90
+        vehicles(3).parameters.lane = 1;
+        disp('Changed lane')
     end
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
@@ -157,6 +158,16 @@ switch vehicle.parameters.conn
         end
         
         
+        if vehicle.target ~= 0
+            vehicle.parameters.lane = vehicles(vehicle.target).parameters.lane; % Change to target lane
+            % CACC
+            err_f = vehicles(vehicle.target).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
+            vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
+            vehicle.trailing_var.error = err_f;
+        else
+            vx = vehicle.parameters.desired_vel;
+        end
+        
     case false % No connection
         % lidar scan angles: [0 pi/2 pi 3*pi/2]
         
@@ -169,17 +180,12 @@ switch vehicle.parameters.conn
             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
             vx = a*vehicle.parameters.sample_time; % Calculate velocity
             
-            % CACC
-            %         pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
-            %         err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
-            %         vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
-            %         vehicle.trailing_var.error = err_f;
+
         else
             vx = vehicle.parameters.desired_vel;
         end
-        
-        w = lane_keeper(vehicle);
 end
+w = lane_keeper(vehicle);
 %     Brake
 %     if vehicle.ranges(1) < 1
 %         vk = vk*0.7;
