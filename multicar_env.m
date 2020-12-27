@@ -27,7 +27,7 @@ load map;
 close
 env.mapName = 'map';
 
-% - Create sensors for each vehicle - 
+% - Create sensors for each vehicle -
 lidars = cell(1,num_vehicles);
 
 for v_idx=1:num_vehicles
@@ -53,7 +53,7 @@ poses = zeros(3,num_vehicles);
 
 % - Define initial pose -
 for v_idx = 1:num_vehicles
-   poses(:,v_idx) = [11.5+v_idx*20;246.5;init_ang(v_idx)]; 
+    poses(:,v_idx) = [11.5+v_idx*20;246.5;init_ang(v_idx)];
 end
 poses(1,3) = 10;
 % poses(2,2) = 244
@@ -116,95 +116,78 @@ end
 
 %% Vehicle controller
 function vehicle = swarmVehicleController(vehicles,v_id)
-    acc_on = false;
-    %TODO: Implement four wheel kinematic model (if we have time)
-    %TODO: Implement robot detectors (instead of lidar or with)
-    %TODO: Add swarm algorithm
-    %TODO:
-        % - add for y- axis
+acc_on = false;
+%TODO: Implement four wheel kinematic model (if we have time)
+%TODO: Implement robot detectors (instead of lidar or with)
+%TODO: Add swarm algorithm (typ klar)
+%TODO:
+% - add for y- axis
+
+
+max_range = 1000; % [m]
+vel_tresh = 5; % [km/h]
+vehicle = vehicles(v_id);
+num_vehicles = length(vehicles);
+
+
+switch vehicle.parameters.conn
+    case true % Connection
+        min_diff_d_vel = 1000;
+        min_idx = -1;
         
-        
-    max_range = 1000; % [m]
-    vel_tresh = 5; % [km/h]
-    vehicle = vehicles(v_id);
-    num_vehicles = length(vehicles);
-    
-    min_diff_d_vel = 1000;
-    min_idx = -1;
-    
-    if vehicle.target == 0
-        for v_idx = 1:num_vehicles % Calculate points
-            if v_idx == v_id
-                continue; % Skip ourselfs
+        if vehicle.target == 0
+            for v_idx = 1:num_vehicles % Calculate points
+                if v_idx == v_id
+                    continue; % Skip ourselfs
+                end
+                diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1); % Difference in meters between vehicles (x-axis)
+                %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
+                diff_d_vel = vehicles(v_idx).parameters.desired_vel - vehicle.parameters.desired_vel;
+                
+                if (diff_d_vel < min_diff_d_vel) && (diff_pose < max_range) && (abs(diff_d_vel) <=vel_tresh/3.6) && (diff_pose >= 0)
+                    min_diff_d_vel = diff_d_vel;
+                    min_idx = v_idx;
+                end
             end
-            diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1); % Difference in meters between vehicles (x-axis)
-            %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
-            diff_d_vel = vehicles(v_idx).parameters.desired_vel - vehicle.parameters.desired_vel;
             
-            if (diff_d_vel < min_diff_d_vel) && (diff_pose < max_range) && (abs(diff_d_vel) <=vel_tresh/3.6) && (diff_pose >= 0)
-                min_diff_d_vel = diff_d_vel;
-                min_idx = v_idx;
-            end
         end
-
-    end
-    if  min_idx ~= -1
-        vehicle.target = min_idx;
-        disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
-    end
-    % lidar scan angles: [0 pi/2 pi 3*pi/2]
-    a = 0.4;
-    % Stay on the road
-    switch vehicle.parameters.lane
-        case 1
-            range = cos(vehicle.pose(3))*vehicle.ranges(4);
-            range_prev = cos(vehicle.pose_prev(3))*vehicle.ranges_prev(4);
-            range_d = diff([range range_prev]);
-            
-            err_right = range-vehicle.lane_keeping_var.dist;
-            if err_right > 1
-                err_right = 0.05*err_right;
-            end
-            w = -0.15*err_right + 1.5*range_d;
-
-        case 2
-            range = cos(vehicle.pose(3))*vehicle.ranges(2);
-            range_prev = cos(vehicle.pose_prev(3))*vehicle.ranges_prev(2);
-            range_d = diff([range range_prev]);
-            err_left = range-vehicle.lane_keeping_var.dist;
-            
-            if err_left > 1
-                err_left = 0.05*err_left;
-            end
-            w = 0.15*err_left + -1.5*range_d;
-    end
-    
-    % Trailing:
-    % With Lidar
-    if acc_on && vehicle.ranges(1) < 60
-%         ttc = vehicle.ranges(1)/(range_d)
-
-        % ACC
-        a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-        vx = a*vehicle.parameters.sample_time; % Calculate velocity
+        if  min_idx ~= -1
+            vehicle.target = min_idx;
+            disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
+        end
         
-        % CACC
-%         pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
-%         err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k 
-%         vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
-%         vehicle.trailing_var.error = err_f;
-    else
-        vx = vehicle.parameters.desired_vel;
-    end
-    
+        
+    case false % No connection
+        % lidar scan angles: [0 pi/2 pi 3*pi/2]
+        
+        % Trailing:
+        % With Lidar
+        if acc_on && vehicle.ranges(1) < 60
+            %         ttc = vehicle.ranges(1)/(range_d)
+            
+            % ACC
+            a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
+            vx = a*vehicle.parameters.sample_time; % Calculate velocity
+            
+            % CACC
+            %         pose_x_target = vehicle.pose(1) + vehicle.ranges(1);
+            %         err_f = pose_x_target - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
+            %         vk = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
+            %         vehicle.trailing_var.error = err_f;
+        else
+            vx = vehicle.parameters.desired_vel;
+        end
+        
+        w = lane_keeper(vehicle);
+end
 %     Brake
 %     if vehicle.ranges(1) < 1
 %         vk = vk*0.7;
 %     end
-        
 
-    vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose);
-    vehicle.ranges_prev = vehicle.ranges; % save range
+
+vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose);
+vehicle.ranges_prev = vehicle.ranges; % save range
 end
 
 
