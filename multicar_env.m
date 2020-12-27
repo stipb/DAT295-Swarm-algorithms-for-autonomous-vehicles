@@ -39,7 +39,6 @@ for v_idx=1:num_vehicles
     lidars{v_idx} = lidar;
     attachLidarSensor(env,lidar);
 end
-
 %% Prep simulation
 time = 0:sample_time:sim_length; % Time array
 poses = zeros(3,num_vehicles);
@@ -111,7 +110,6 @@ acc_on = false;
 %TODO:
 % - add for y- axis
 
-
 max_range = 1000; % [m]
 vel_tresh = 5; % [km/h]
 vehicle = vehicles(v_id);
@@ -141,7 +139,6 @@ switch vehicle.parameters.conn
                     min_idx = v_idx;
                 end
             end
-            
         end
         
         %Update
