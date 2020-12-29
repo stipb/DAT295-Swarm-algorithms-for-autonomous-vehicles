@@ -7,7 +7,7 @@ sim_length = 100; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [10 15 16 40]./3.6;
+init_vel = [10 15 38 40]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
 lane = [2 2 2 2];
@@ -66,8 +66,8 @@ poses = zeros(3,num_vehicles);
 for v_idx = 1:num_vehicles
     poses(:,v_idx) = [11.5+v_idx*20;25;init_ang(v_idx)];
 end
-% poses(1,3) = 10;
-% poses(2,2) = 244
+poses(1,3) = 400;
+poses(1,4) = 450;
 env.Poses = poses;
 %% Simulation loop
 
@@ -91,7 +91,7 @@ end
 
 allRanges = cell(1,num_vehicles);
 for idx = 2:numel(time) % simulation loop
-
+pause(0.03)
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
         % LiDAR
@@ -111,6 +111,19 @@ for idx = 2:numel(time) % simulation loop
         poses(:,v_idx) = vehicles(v_idx).pose;
     end
     
+    % Check if approaching end of road
+    for v_idx = 1:num_vehicles
+        if vehicles(v_idx).pose(1) > 499
+            for v_idx_2 = 1:num_vehicles % Check if any other vehicle targets this one
+                if vehicles(v_idx_2).target == v_idx
+                    vehicles(v_idx_2).target = 0; % Reset target
+                    disp(['Vehicle ' num2str(v_idx_2) ' lost ' num2str(v_idx)])
+                end
+            end
+            vehicles(v_idx).pose(1) = 5; % Change pose
+        end
+    end
+    
     %Change lane
     if idx == 90
         vehicles(3).parameters.lane = 1;
@@ -121,7 +134,7 @@ for idx = 2:numel(time) % simulation loop
     env(1:num_vehicles,poses,allRanges)
     ylim([20 30])
     xlim([0 500])
-    set(gcf, 'Position',  [5, 500, 1900, 100])
+    set(gcf, 'Position',  [5, 500, 1900, 100]) % Set window position and size
 %     ylim([240 248])
 %     xlim([11 300])
 end
@@ -135,7 +148,7 @@ acc_on = false;
 %TODO:
 % - add for y- axis
 
-max_range = 1000; % [m]
+max_range = 200; % [m]
 vel_tresh = 5; % [km/h]
 vehicle = vehicles(v_id);
 num_vehicles = length(vehicles);
