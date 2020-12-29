@@ -4,7 +4,7 @@ clc, clear all, close all
 % x = 1:1:10000;
 % y = 40*ones(1,10000)';
 % setOccupancy(map,[x' y], zeros(10000,1))
-image = imread('map_large.png');
+image = imread('map_large_sq.png');
 grayimage = rgb2gray(image);
 map = binaryOccupancyMap(grayimage,3);
 
@@ -14,4 +14,4 @@ show(map)
 fig=gcf;
 fig.Units='normalized';
 fig.OuterPosition=[0 0 1 1];
-save map
+save map_v2

@@ -3,18 +3,18 @@ close all, clc, clear all
 % - Init -
 num_vehicles = 4;
 sample_time = 0.1; % Time step [s]
-sim_length = 20; % Simulation time [s]
+sim_length = 100; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [26 30 35 40]./3.6;
+init_vel = [10 15 16 40]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
 lane = [2 2 2 2];
 
 % - Define vehicle -
 wheel_radius = 0.05;  % Wheel radius [m]
-f_length = 2;     % Distance from CG to front wheels [m]
+f_length = 1;     % Distance from CG to front wheels [m]
 r_length = 0.25;         % Distance from CG to rear wheels [m]
 vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
 
@@ -22,15 +22,19 @@ vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
 env = MultiRobotEnv(num_vehicles);
 env.robotRadius = f_length;
 env.hasWaypoints = false;
-env.plotSensorLines = true;
-load map;
+env.showTrajectory = false;
+env.plotSensorLines = false;
+load map_v2;
 close
 env.mapName = 'map';
 
 % - Create sensors for each vehicle -
 lidars = cell(1,num_vehicles);
+detectors = cell(1,num_vehicles);
 
 for v_idx=1:num_vehicles
+    
+    % LIDAR
     lidar = MultiRobotLidarSensor;
     lidar.sensorOffset = [0,0];
     lidar.scanAngles = [0 pi/2 pi 3*pi/2];
@@ -38,6 +42,17 @@ for v_idx=1:num_vehicles
     lidar.robotIdx = v_idx;
     lidars{v_idx} = lidar;
     attachLidarSensor(env,lidar);
+    
+    % RobotDetector
+    detector = RobotDetector(env,v_idx);
+    detector.sensorOffset = [0,0];
+    detector.sensorAngle = 0;
+    detector.fieldOfView = 2*pi;
+    detector.maxRange = 20;
+    detector.robotIdx = v_idx;
+    detector.maxDetections = 4;
+    detectors{v_idx} = detector;
+
 end
 %% Prep simulation
 time = 0:sample_time:sim_length; % Time array
@@ -49,7 +64,7 @@ poses = zeros(3,num_vehicles);
 
 % - Define initial pose -
 for v_idx = 1:num_vehicles
-    poses(:,v_idx) = [11.5+v_idx*20;246.5;init_ang(v_idx)];
+    poses(:,v_idx) = [11.5+v_idx*20;25;init_ang(v_idx)];
 end
 % poses(1,3) = 10;
 % poses(2,2) = 244
@@ -65,8 +80,10 @@ for v_idx=1:num_vehicles
         'velocity_prev',zeros(3,1),...
         'ranges',zeros(length(lidar.scanAngles),1),...
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
+        'detections',detectors{v_idx}(),...
+        'detections_prev',detectors{v_idx}(),...
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',2,'t_hw',0.1,'error',0),... % Variables for trailing alg
-        'lane_keeping_var',struct('dist',f_length+2),... % Variables for lane keeping alg
+        'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',true,'sample_time',sample_time),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'target',0);
@@ -74,12 +91,17 @@ end
 
 allRanges = cell(1,num_vehicles);
 for idx = 2:numel(time) % simulation loop
-    
+
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
+        % LiDAR
         ranges = lidars{v_idx}(); % Get lidar data
         vehicles(v_idx).ranges = ranges;
         allRanges{v_idx} = ranges;
+        
+        % Robotdetector
+        detections = detectors{v_idx}(); 
+        vehicles(v_idx).detections = detections;
         vehicles(v_idx) = swarmVehicleController(vehicles,v_idx);
     end
     
@@ -97,8 +119,11 @@ for idx = 2:numel(time) % simulation loop
     
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
-    ylim([240 258])
-    xlim([11 300])
+    ylim([20 30])
+    xlim([0 500])
+    set(gcf, 'Position',  [5, 500, 1900, 100])
+%     ylim([240 248])
+%     xlim([11 300])
 end
 
 %% Vehicle controller
