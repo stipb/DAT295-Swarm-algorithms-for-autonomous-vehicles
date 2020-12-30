@@ -3,7 +3,7 @@ close all, clc, clear all
 % - Init -
 num_vehicles = 4;
 sample_time = 0.1; % Time step [s]
-sim_length = 100; % Simulation time [s]
+sim_length = 30; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
@@ -23,7 +23,7 @@ env = MultiRobotEnv(num_vehicles);
 env.robotRadius = f_length;
 env.hasWaypoints = false;
 env.showTrajectory = false;
-env.plotSensorLines = false;
+env.plotSensorLines = true;
 load map_v2;
 close
 env.mapName = 'map';
@@ -48,7 +48,7 @@ for v_idx=1:num_vehicles
     detector.sensorOffset = [0,0];
     detector.sensorAngle = 0;
     detector.fieldOfView = 2*pi;
-    detector.maxRange = 20;
+    detector.maxRange = 50;
     detector.robotIdx = v_idx;
     detector.maxDetections = 4;
     detectors{v_idx} = detector;
@@ -82,7 +82,7 @@ for v_idx=1:num_vehicles
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
         'detections',detectors{v_idx}(),...
         'detections_prev',detectors{v_idx}(),...
-        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',2,'t_hw',0.1,'error',0),... % Variables for trailing alg
+        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',1,'t_hw',1,'error',0),... % Variables for trailing alg
         'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',true,'sample_time',sample_time),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
@@ -91,7 +91,7 @@ end
 
 allRanges = cell(1,num_vehicles);
 for idx = 2:numel(time) % simulation loop
-pause(0.03)
+    pause(0.05)
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
         % LiDAR
@@ -120,7 +120,7 @@ pause(0.03)
                     disp(['Vehicle ' num2str(v_idx_2) ' lost ' num2str(v_idx)])
                 end
             end
-            vehicles(v_idx).pose(1) = 5; % Change pose
+            vehicles(v_idx).pose(1) = 1; % Change pose
         end
     end
     
@@ -190,7 +190,7 @@ switch vehicle.parameters.conn
             vehicle.parameters.lane = vehicles(vehicle.target).parameters.lane; % Change to target lane
             
             % CACC
-            err_f = vehicles(vehicle.target).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
+            err_f = vehicles(vehicle.target).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw_conn*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
             vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
             vehicle.trailing_var.error = err_f;
         else % Drive at defualt velocity 
@@ -203,6 +203,7 @@ switch vehicle.parameters.conn
         % Trailing with lidar
         if acc_on && vehicle.ranges(1) < 60
             % ACC
+            range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
             vx = a*vehicle.parameters.sample_time; % Calculate velocity
         else % Drive at defualt velocity 
@@ -211,8 +212,41 @@ switch vehicle.parameters.conn
 end
 w = lane_keeper(vehicle); % Get turn angle from lane keeper
 
+% Detect and react to close vehicles
+if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
+    nmr_of_detections = size(vehicle.detections,1);
+    for idx = 1:nmr_of_detections
+        if abs(vehicle.detections(idx,2)) < pi/8 % Check if vehicle is in front and oncoming
+            
+            idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
+            if ~isempty(idx_prev) % ttc = d/(v_e - v_t)
+%                 ttc = vehicle.detections(idx,1)/diff([vehicle.detections(idx,1),vehicle.detections_prev(idx_prev,1)]);
+                ttc = vehicle.detections(idx,1)/(vehicle.velocity(1) - vehicles(idx_prev).velocity(1))
+                if v_id == 4
+                    disp(['TTC to vehicle ' num2str(idx) ': ' num2str(ttc)])
+                    a=1;
+                end
+                if ttc < 4
+                    %ACC
+                    range_d = diff([vehicle.detections_prev(idx,1),vehicle.detections(idx,1)]);
+                    a = 3*( vehicle.detections(idx,1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
+                    vx = a*vehicle.parameters.sample_time; % Calculate velocity
+                end
+            end
+        end
+    end
+end
+
+% acc = diff([vehicle.velocity(1), vx]);
+% if acc > 5
+%     vx = vehicle.velocity(1) + 4*vehicle.parameters.sample_time;
+% end
+% if acc < -7
+%     vx = vehicle.velocity(1) - 8*vehicle.parameters.sample_time;
+% end
 vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose); % To world coordinates
 vehicle.ranges_prev = vehicle.ranges; % Save range
+vehicle.detections_prev = vehicle.detections; % Save detections
 end
 
 
