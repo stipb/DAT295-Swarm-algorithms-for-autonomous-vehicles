@@ -7,7 +7,7 @@ sim_length = 30; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [10 15 38 40]./3.6;
+init_vel = [10 15 18 20]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
 lane = [2 2 2 2];
@@ -52,7 +52,7 @@ for v_idx=1:num_vehicles
     detector.robotIdx = v_idx;
     detector.maxDetections = 4;
     detectors{v_idx} = detector;
-
+    
 end
 %% Prep simulation
 time = 0:sample_time:sim_length; % Time array
@@ -82,7 +82,7 @@ for v_idx=1:num_vehicles
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
         'detections',detectors{v_idx}(),...
         'detections_prev',detectors{v_idx}(),...
-        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',1,'t_hw',1,'error',0),... % Variables for trailing alg
+        'trailing_var',struct('kp',0.25,'kd',0.25,'t_hw_conn',0.1,'t_hw',1,'error',0),... % Variables for trailing alg
         'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',true,'sample_time',sample_time),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
@@ -91,7 +91,6 @@ end
 
 allRanges = cell(1,num_vehicles);
 for idx = 2:numel(time) % simulation loop
-    pause(0.05)
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
         % LiDAR
@@ -100,7 +99,7 @@ for idx = 2:numel(time) % simulation loop
         allRanges{v_idx} = ranges;
         
         % Robotdetector
-        detections = detectors{v_idx}(); 
+        detections = detectors{v_idx}();
         vehicles(v_idx).detections = detections;
         vehicles(v_idx) = swarmVehicleController(vehicles,v_idx);
     end
@@ -135,20 +134,24 @@ for idx = 2:numel(time) % simulation loop
     ylim([20 30])
     xlim([0 500])
     set(gcf, 'Position',  [5, 500, 1900, 100]) % Set window position and size
-%     ylim([240 248])
-%     xlim([11 300])
+    %     ylim([240 248])
+    %     xlim([11 300])
 end
 
 %% Vehicle controller
 function vehicle = swarmVehicleController(vehicles,v_id)
 acc_on = false;
 %TODO: Implement four wheel kinematic model (if we have time)
-%TODO: Implement robot detectors (instead of lidar or with)
-%TODO: Add swarm algorithm (~done)
+%Done: Implement robot detectors (instead of lidar or with) 
+%Done: Add swarm algorithm (~done)
 %TODO:
 % - add for y- axis
+%TODO: Fix messages for lane change
+%TODO: Add automatic emergency braking
+%TODO: Set limit to acceleration
+%TODO: Move code to functions
 
-max_range = 200; % [m]
+max_range = 50; % [m]
 vel_tresh = 5; % [km/h]
 vehicle = vehicles(v_id);
 num_vehicles = length(vehicles);
@@ -157,12 +160,29 @@ switch vehicle.parameters.conn
     case true % Connection
         
         %Init var
-        min_diff_d_vel = 1000; 
+        min_diff_d_vel = 1000;
         min_idx = -1;
+        
+        % Handle messages
+        for v_idx = 1:length(vehicles)
+            if v_idx == v_id
+                continue; % Skip ourselfs
+            end
+            if vehicles(v_idx).messages(v_id) ~= 0 %Check for incoming message
+                % Message received
+                if vehicles(v_idx).messages(v_id) == 1 % Other vehicle asks us to change lane
+                    if vehicle.target == 0
+                        vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
+                        disp(['Vehicle ' num2str(v_id) ' changed lane to ' num2str(vehicle.parameters.lane)])
+                    end
+                    vehicles(v_idx).messages(v_id) = 0; % reset value
+                end
+            end
+        end
         
         % Get target
         if vehicle.target == 0 % Check if vehicle already have a target
-            for v_idx = 1:num_vehicles % 
+            for v_idx = 1:num_vehicles %
                 if v_idx == v_id
                     continue; % Skip ourselfs
                 end
@@ -193,7 +213,7 @@ switch vehicle.parameters.conn
             err_f = vehicles(vehicle.target).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw_conn*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
             vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
             vehicle.trailing_var.error = err_f;
-        else % Drive at defualt velocity 
+        else % Drive at defualt velocity
             vx = vehicle.parameters.desired_vel;
         end
         
@@ -206,7 +226,7 @@ switch vehicle.parameters.conn
             range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
             vx = a*vehicle.parameters.sample_time; % Calculate velocity
-        else % Drive at defualt velocity 
+        else % Drive at defualt velocity
             vx = vehicle.parameters.desired_vel;
         end
 end
@@ -220,18 +240,29 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
             
             idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
             if ~isempty(idx_prev) % ttc = d/(v_e - v_t)
-%                 ttc = vehicle.detections(idx,1)/diff([vehicle.detections(idx,1),vehicle.detections_prev(idx_prev,1)]);
-                ttc = vehicle.detections(idx,1)/(vehicle.velocity(1) - vehicles(idx_prev).velocity(1))
-                if v_id == 4
-                    disp(['TTC to vehicle ' num2str(idx) ': ' num2str(ttc)])
-                    a=1;
+                %                 ttc = vehicle.detections(idx,1)/diff([vehicle.detections(idx,1),vehicle.detections_prev(idx_prev,1)]);
+                %                 if vehicle.parameters.conn
+                %                     ttc = vehicle.detections(idx,1)/(vehicle.velocity(1) - vehicles(idx_prev).velocity(1)); %% ttc conn
+                %                 else
+                ttc = vehicle.detections(idx,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx,1));
+                
+                %                 end
+                if vehicle.parameters.conn && ttc < 15 && ttc > 0 && isInSameLane(vehicle,vehicles(vehicle.detections(idx,3)))
+                    if v_id == 4
+                        a = 1;
+                    end
+                    vehicle.messages(vehicle.detections(idx_prev,3)) = 1;
                 end
-                if ttc < 4
-                    %ACC
-                    range_d = diff([vehicle.detections_prev(idx,1),vehicle.detections(idx,1)]);
-                    a = 3*( vehicle.detections(idx,1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-                    vx = a*vehicle.parameters.sample_time; % Calculate velocity
-                end
+                %                 if ttc < 4 && ttc > 0
+                %                     disp('braking')
+                %                     deacc = 8; % [m/s^2]
+                %                     vx = vehicle.velocity(1)*0.5
+                %
+                %ACC
+                %                     range_d = diff([vehicle.detections_prev(idx_prev,1),vehicle.detections(idx,1)]);
+                %                     a = 3*( vehicle.detections(idx,1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
+                %                     vx = a*vehicle.parameters.sample_time; % Calculate velocity
+                %                 end
             end
         end
     end
