@@ -133,6 +133,7 @@ for idx = 2:numel(time) % simulation loop
 %     end
     if idx == 140
         vehicles(3).parameters.conn = 0;
+        vehicles(1).parameters.conn = 0;
         disp('conn lost')
     end
     % Update visualizer
@@ -187,7 +188,7 @@ switch vehicle.parameters.conn
                 end
                 switch vehicles(v_idx).messages(v_id)
                     case 1 % Other vehicle asks us to change lane
-                        if vehicle.target == 0 && vehicle.pose(1)-vehicle.parameters.lc_pose > 10 % Is not following
+                        if vehicle.target == 0 % Is not following
                             vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
                             disp(['Vehicle ' num2str(v_id) ' changed lane to ' num2str(vehicle.parameters.lane)])
                             vehicle.parameters.lc_pose = vehicle.pose(1);
@@ -323,9 +324,13 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx_prev) ' to change lane'])
                         vehicle.messages(vehicle.detections(idx,3)) = 1;
                         end
-                    else
+                    elseif vehicles(idx_prev).parameters.conn
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx_prev) ' to change lane'])
                         vehicle.messages(vehicle.detections(idx,3)) = 1;
+                    else
+                        disp(['Vehicle ' num2str(v_id) ' changes lane'])
+                        % Try to change lane
+                        vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
                     end
                 end
                 %                 if ttc < 4 && ttc > 0
