@@ -7,7 +7,7 @@ sim_length = 60; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [11 12 14 25]./3.6;
+init_vel = [11 12 16 25]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
 lane = [2 2 2 2];
@@ -131,10 +131,10 @@ for idx = 2:numel(time) % simulation loop
 %         vehicles(4).parameters.lane = 1;
 %         disp('Changed lane')
 %     end
-%     if idx == 120
-%         vehicles(3).parameters.conn = 0;
-%         disp('conn lost')
-%     end
+    if idx == 140
+        vehicles(3).parameters.conn = 0;
+        disp('conn lost')
+    end
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
     ylim([20 30])
@@ -220,18 +220,27 @@ switch vehicle.parameters.conn
                 vehicles(v_idx).messages(v_id) = 0; % reset value
             end
         end
-        if vehicle.target ~= 0 % Check if someone targets me while i already have a target
-            for v_idx = 1:num_vehicles % Get who targets me
-                if vehicles(v_idx).target == v_id
-                    vehicle.messages(v_idx) = 5; % Notify that vehicle
+        if vehicle.target ~= 0 % Do checks if conn is still established and if targets are correct
+            % Check if conn established
+            if vehicles(vehicle.target).parameters.conn == false
+                vehicle.target = 0;
+                vehicle.isLeader = false;
+            else
+            
+                 % Check if someone targets me while i already have a target
+                for v_idx = 1:num_vehicles % Get who targets me
+                    if vehicles(v_idx).target == v_id
+                        vehicle.messages(v_idx) = 5; % Notify that vehicle
+                    end
                 end
             end
         end
+        
         % Get target
         if vehicle.target == 0 % Check if vehicle already have a target
             for v_idx = 1:num_vehicles %
-                if v_idx == v_id
-                    continue; % Skip ourselfs
+                if v_idx == v_id || vehicles(v_idx).parameters.conn == false
+                    continue; % Skip ourselfs or for those with no conn
                 end
                 diff_pose = vehicles(v_idx).pose(1) - vehicle.pose(1); % Difference in meters between vehicles (x-axis)
                 %         diff_vel = vehicle.velocity(1:2) - vehicles(v_idx).velocity(1:2);
