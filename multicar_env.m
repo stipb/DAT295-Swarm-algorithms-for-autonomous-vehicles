@@ -90,9 +90,6 @@ for v_idx=1:num_vehicles
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...
         'target',0);
-    
-    max_range = 100; % [m]
-vel_tresh = 7; % [km/h]
 end
 allRanges = cell(1,num_vehicles);
 for idx = 2:numel(time) % simulation loop
