@@ -3,15 +3,15 @@ close all, clc, clear all
 % - Init -
 num_vehicles = 4;
 sample_time = 0.1; % Time step [s]
-sim_length = 60; % Simulation time [s]
+sim_length = 160; % Simulation time [s]
 addpath('map')
 
 % Set initial speed for each vehicle:
-init_vel = [11 12 16 25]./3.6;
+init_vel = [11 12 23 27]./3.6;
 init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
 % init_ang = [0 0 0];
-lane = [2 2 2 2];
-
+lane = [2 2 1 1];
+max_acc = 5; % [m/s^2] max acceleration/deacceleration
 % - Define vehicle -
 wheel_radius = 0.05;  % Wheel radius [m]
 f_length = 1;     % Distance from CG to front wheels [m]
@@ -64,10 +64,10 @@ poses = zeros(3,num_vehicles);
 
 % - Define initial pose -
 for v_idx = 1:num_vehicles
-    poses(:,v_idx) = [70.5+v_idx*20;25;init_ang(v_idx)];
+    poses(:,v_idx) = [150.5+v_idx*20;25;init_ang(v_idx)];
 end
-% poses(1,3) = 2;
-poses(1,4) = 470;
+poses(1,3) = 75;
+poses(1,4) = 50;
 env.Poses = poses;
 
 %% Simulation loop
@@ -83,7 +83,7 @@ for v_idx=1:num_vehicles
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
         'detections',detectors{v_idx}(),...
         'detections_prev',detectors{v_idx}(),...
-        'trailing_var',struct('kp',0.25,'kd',0.25,'t_hw_conn',0.1,'t_hw',1,'error',0),... % Variables for trailing alg
+        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',0.5,'t_hw',1,'error',0),... % Variables for trailing alg
         'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',true,'sample_time',sample_time,'max_range',100,'vel_tresh',5),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
@@ -103,7 +103,7 @@ for idx = 2:numel(time) % simulation loop
         % Robotdetector
         detections = detectors{v_idx}();
         vehicles(v_idx).detections = detections;
-        vehicles = swarmVehicleController(vehicles,v_idx);
+        vehicles = swarmVehicleController(vehicles,v_idx,max_acc);
     end
     
     % Update poses
@@ -127,14 +127,14 @@ for idx = 2:numel(time) % simulation loop
     end
     
 %     Change lane
-%     if idx == 90
-%         vehicles(4).parameters.lane = 1;
-%         disp('Changed lane')
-%     end
+    if idx == 90
+        vehicles(3).parameters.lane = 2;
+        disp('Changed lane')
+    end
     if idx == 140
-        vehicles(3).parameters.conn = 0;
-        vehicles(1).parameters.conn = 0;
-        disp('conn lost')
+%         vehicles(3).parameters.conn = 0;
+%         vehicles(1).parameters.conn = 0;
+%         disp(['Vehicle 1: conn lost'])
     end
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
@@ -146,7 +146,7 @@ for idx = 2:numel(time) % simulation loop
 end
 
 %% Vehicle controller
-function vehicles = swarmVehicleController(vehicles,v_id)
+function vehicles = swarmVehicleController(vehicles,v_id,max_acc)
 acc_on = false;
 %TODO: Implement four wheel kinematic model (if we have time)
 %Done: Implement robot detectors (instead of lidar or with) 
@@ -183,9 +183,6 @@ switch vehicle.parameters.conn
             
             if vehicles(v_idx).messages(v_id) ~= 0 %Check for incoming message
                 % Message received
-                if v_id == 1
-                    a= 1;
-                end
                 switch vehicles(v_idx).messages(v_id)
                     case 1 % Other vehicle asks us to change lane
                         if vehicle.target == 0 % Is not following
@@ -210,7 +207,7 @@ switch vehicle.parameters.conn
                         if  ~all(vehicle.platoon_members) % No vehicles in platoon
                             vehicle.isLeader = false;
                         end
-                    case 5 %Notified by target that it has a other target
+                    case 5 %Notified by target that it has another target
                         if vehicle.target == v_idx % Check that the message is from our target
                             vehicle.target = vehicles(v_idx).target; % Update our target
                             vehicle.messages(v_idx) = 4; % Notify old target to leave platoon
@@ -227,7 +224,6 @@ switch vehicle.parameters.conn
                 vehicle.target = 0;
                 vehicle.isLeader = false;
             else
-            
                  % Check if someone targets me while i already have a target
                 for v_idx = 1:num_vehicles % Get who targets me
                     if vehicles(v_idx).target == v_id
@@ -255,12 +251,8 @@ switch vehicle.parameters.conn
                 end
             end
         end
-
         %Update
         if  min_idx ~= -1
-            if v_id == 3
-               a= 1; 
-            end
             vehicle.target = min_idx;
             vehicle.messages(vehicle.target) = 3; % notify target
             disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
@@ -269,7 +261,9 @@ switch vehicle.parameters.conn
         % Follow target
         if vehicle.target ~= 0
             vehicle.parameters.lane = vehicles(vehicle.target).parameters.lane; % Change to target lane
+            
             % Check if there is other vehicles between us and the leader
+            % if so follow that one
             rel_pose = 1000*ones(1,num_vehicles);
             for v_idx = 1:num_vehicles % Get relative position to all vehicles
                 if vehicles(vehicle.target).platoon_members(v_idx) == true % Check if vehicle in platoon
@@ -279,7 +273,7 @@ switch vehicle.parameters.conn
                     end
                 end
             end
-            [val, idx] = min(rel_pose);
+            [~, idx] = min(rel_pose);
             % CACC
             err_f = vehicles(idx).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw_conn*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
             vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
@@ -289,6 +283,11 @@ switch vehicle.parameters.conn
         end
         
     case false % No connection
+        if vehicle.target ~=0 % if it has target remove it
+            vehicle.messages(vehicle.target) = 4; % notify target
+            vehicle.target = 0;
+        end
+        
         % lidar scan angles: [0 pi/2 pi 3*pi/2]
 
         % Trailing with lidar
@@ -302,58 +301,61 @@ switch vehicle.parameters.conn
         end
 end
 w = lane_keeper(vehicle); % Get turn angle from lane keeper
-
 % Detect and react to close vehicles
 if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
     nmr_of_detections = size(vehicle.detections,1);
     for idx = 1:nmr_of_detections
-        if abs(vehicle.detections(idx,2)) < pi/8 % Check if vehicle is in front and oncoming
-            
-            idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
-            if ~isempty(idx_prev) 
-                % ttc = d/(v_e - v_t)
-                if vehicle.parameters.conn
-                    ttc = vehicle.detections(idx,1)/(vehicle.velocity(1) - vehicles(idx_prev).velocity(1)); %% ttc conn
-                else
-                    ttc = vehicle.detections(idx,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx,1)); %% ttc with sensor
-         
-                end
-                if vehicle.parameters.conn && ttc < 15 && ttc > 0 && isInSameLane(vehicle,vehicles(vehicle.detections(idx,3)))
-                    if vehicle.target ~= 0 
-                        if vehicles(vehicle.target).platoon_members(idx_prev) == false % Make sure it is not in the same platoon
-                        disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx_prev) ' to change lane'])
-                        vehicle.messages(vehicle.detections(idx,3)) = 1;
-                        end
-                    elseif vehicles(idx_prev).parameters.conn
-                        disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx_prev) ' to change lane'])
-                        vehicle.messages(vehicle.detections(idx,3)) = 1;
-                    else
-                        disp(['Vehicle ' num2str(v_id) ' changes lane'])
-                        % Try to change lane
-                        vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
-                    end
-                end
-                %                 if ttc < 4 && ttc > 0
-                %                     disp('braking')
-                %                     deacc = 8; % [m/s^2]
-                %                     vx = vehicle.velocity(1)*0.5
-                %
-                %ACC
-                %                     range_d = diff([vehicle.detections_prev(idx_prev,1),vehicle.detections(idx,1)]);
-                %                     a = 3*( vehicle.detections(idx,1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-                %                     vx = a*vehicle.parameters.sample_time; % Calculate velocity
-                %                 end
+        idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
+        if  isempty(idx_prev)
+            continue;
+        end
+        vehicle_exists = find(vehicle.detections(:,3) == idx, 1);
+        if  ~isempty(vehicle_exists) && abs(vehicle.detections(idx_prev,2)) < pi/8 % Check if vehicle is in front and oncoming
+            % ttc = d/(v_e - v_t)
+            if vehicle.parameters.conn
+                ttc = vehicle.detections(idx_prev,1)/(vehicle.velocity(1) - vehicles(idx).velocity(1)); %% ttc conn
+            else
+                ttc = vehicle.detections(idx_prev,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_prev,1)); %% ttc with sensor
             end
+            if vehicle.parameters.conn && ttc < 15 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
+                if vehicle.target ~= 0
+                    % Connection
+                    if vehicles(vehicle.target).platoon_members(idx_prev) == false % Make sure it is not in the same platoon
+                        disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
+                        vehicle.messages(idx) = 1;
+                    end
+                elseif vehicles(idx_prev).parameters.conn
+                    % Connection but not in platoon
+                    disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
+                    vehicle.messages(idx) = 1;
+                else
+                    %Connectionless
+                    disp(['Vehicle ' num2str(v_id) ' changes lane'])
+                    % Try to change lane
+                    vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
+                end
+            end
+            %                 if ttc < 4 && ttc > 0
+            %                     disp('braking')
+            %                     deacc = 8; % [m/s^2]
+            %                     vx = vehicle.velocity(1)*0.5
+            %
+            %ACC
+            %                     range_d = diff([vehicle.detections_prev(idx_prev,1),vehicle.detections(idx,1)]);
+            %                     a = 3*( vehicle.detections(idx,1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
+            %                     vx = a*vehicle.parameters.sample_time; % Calculate velocity
+            %                 end
         end
     end
 end
 
+% Limit acceleration
 acc = diff([vehicle.velocity(1), vx]);
-if acc > 5
-    vx = vehicle.velocity(1) + 4*vehicle.parameters.sample_time;
+if acc > max_acc
+    vx = vehicle.velocity(1) + max_acc*vehicle.parameters.sample_time;
 end
-if acc < -7
-    vx = vehicle.velocity(1) - 8*vehicle.parameters.sample_time;
+if acc < -max_acc
+    vx = vehicle.velocity(1) - max_acc*vehicle.parameters.sample_time;
 end
 vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose); % To world coordinates
 vehicle.ranges_prev = vehicle.ranges; % Save range
