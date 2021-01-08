@@ -1,20 +1,20 @@
 %% Create tests with this script
-
+clear all
 test_name = 'test_case1';
 % - Init -
-num_vehicles = 4;
+num_vehicles = 9;
 sample_time = 0.1; % Time step [s]
 sim_length = 60; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [100 120 40 60];
-init_y_position = [26 26 24 24];
+init_x_position = [100 120 40 60 200 240 300 310 330];
+init_y_position = [26 26 24 24 26 26 24 24 24];
 
-init_vel = [50 52 60 62]./3.6; % Initial velocity for vehicles
-init_ang = [0 0 0 0]; % Starting angle for vehicles
+init_vel = [50 52 60 62 40 41 32 32 35]./3.6; % Initial velocity for vehicles
+init_ang = [0 0 0 0 0 0 0 0 0]; % Starting angle for vehicles
 
-lane = [1 2 1 1]; % Which lane the vehicles should drive in
-init_conn = [false true true true]; % Set if vehicles should have communcation enabled
+lane = [1 2 1 1 2 2 1 1 1]; % Which lane the vehicles should drive in
+init_conn = [false true true true true true true true true]; % Set if vehicles should have communcation enabled
 
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
@@ -33,7 +33,7 @@ cl_times = [90];
 
 
 % Do checks for variables
-if num_vehicles ~= length(init_x_position) || num_vehicles ~= length(init_y_position)... 
+if num_vehicles ~= length(init_x_position) || num_vehicles ~= length(init_y_position) || num_vehicles ~= length(init_conn)... 
         || num_vehicles ~=length(init_vel) || num_vehicles ~= length(init_ang) || num_vehicles ~= length(lane)
    error('Make sure  the number of vehicles matches the size of initial settnings arrays.') 
 end
