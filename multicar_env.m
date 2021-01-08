@@ -1,16 +1,17 @@
-%% Multi vehicle with lidars
+%% Multi vehicle simulation
 close all, clc, clear all
-% - Init -
-num_vehicles = 4;
-sample_time = 0.1; % Time step [s]
-sim_length = 160; % Simulation time [s]
-addpath('map')
-
-% Set initial speed for each vehicle:
-init_vel = [11 12 23 27]./3.6;
-init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
-% init_ang = [0 0 0];
-lane = [2 2 1 1];
+% % - Init -
+% num_vehicles = 4;
+% sample_time = 0.1; % Time step [s]
+% sim_length = 60; % Simulation time [s]
+% addpath('map')
+% 
+% % Set initial speed for each vehicle:
+% init_vel = [11 12 23 27]./3.6;
+% init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
+% % init_ang = [0 0 0];
+% lane = [2 2 1 1];
+load('test_case1')
 max_acc = 5; % [m/s^2] max acceleration/deacceleration
 % - Define vehicle -
 wheel_radius = 0.05;  % Wheel radius [m]
@@ -38,7 +39,7 @@ for v_idx=1:num_vehicles
     lidar = MultiRobotLidarSensor;
     lidar.sensorOffset = [0,0];
     lidar.scanAngles = [0 pi/2 pi 3*pi/2];
-    lidar.maxRange = 60;
+    lidar.maxRange = 70;
     lidar.robotIdx = v_idx;
     lidars{v_idx} = lidar;
     attachLidarSensor(env,lidar);
@@ -64,10 +65,8 @@ poses = zeros(3,num_vehicles);
 
 % - Define initial pose -
 for v_idx = 1:num_vehicles
-    poses(:,v_idx) = [150.5+v_idx*20;25;init_ang(v_idx)];
+    poses(:,v_idx) = [init_x_position(v_idx);init_y_position(v_idx);init_ang(v_idx)];
 end
-poses(1,3) = 75;
-poses(1,4) = 50;
 env.Poses = poses;
 
 %% Simulation loop
@@ -83,9 +82,9 @@ for v_idx=1:num_vehicles
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
         'detections',detectors{v_idx}(),...
         'detections_prev',detectors{v_idx}(),...
-        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',0.5,'t_hw',1,'error',0),... % Variables for trailing alg
+        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',0.5,'t_hw',3,'error',0),... % Variables for trailing alg
         'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
-        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',true,'sample_time',sample_time,'max_range',100,'vel_tresh',5),...
+        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',100,'vel_tresh',5),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...
@@ -125,16 +124,29 @@ for idx = 2:numel(time) % simulation loop
             vehicles(v_idx).pose(1) = 1; % Change pose
         end
     end
-    
-%     Change lane
-    if idx == 90
-        vehicles(3).parameters.lane = 2;
-        disp('Changed lane')
+    if ~isempty(cl_ids) % Change lane
+        for i=1:length(cl_ids)
+            if idx == cl_times(i)
+                vehicles(cl_ids(i)).parameters.lane = mod(vehicles(cl_ids(i)).parameters.lane,2)+1; % Change lane
+                disp(['Vehicle ' num2str(cl_ids(i)) ' changed lane.'])
+            end
+        end
     end
-    if idx == 140
-%         vehicles(3).parameters.conn = 0;
-%         vehicles(1).parameters.conn = 0;
-%         disp(['Vehicle 1: conn lost'])
+    if ~isempty(bc_ids) % Break communcation
+        for i=1:length(bc_ids)
+            if idx == bc_times(i) && vehicles(bc_ids(i)).parameters.conn == 1
+                vehicles(bc_ids(i)).parameters.conn = 0;
+                disp(['Vehicle ' num2str(bc_ids(i)) ' lost communication.'])
+            end
+        end
+    end
+    if ~isempty(ec_ids) % Enable communication
+        for i=1:length(ec_ids)
+            if idx == ec_times(i) && vehicles(ec_ids(i)).parameters.conn == 0
+                vehicles(ec_ids(i)).parameters.conn = 1;
+                disp(['Vehicle ' num2str(ec_ids(i)) ' enabled communication.'])
+            end
+        end
     end
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
@@ -147,15 +159,12 @@ end
 
 %% Vehicle controller
 function vehicles = swarmVehicleController(vehicles,v_id,max_acc)
-acc_on = false;
-%TODO: Implement four wheel kinematic model (if we have time)
+acc_on = true;
 %Done: Implement robot detectors (instead of lidar or with) 
 %Done: Add swarm algorithm (~done)
 %TODO:
 % - add for y- axis
-%TODO: Fix messages for lane change
 %TODO: Add automatic emergency braking
-%TODO: Set limit to acceleration
 %TODO: Move code to functions
 
 vehicle = vehicles(v_id);
@@ -287,11 +296,14 @@ switch vehicle.parameters.conn
             vehicle.messages(vehicle.target) = 4; % notify target
             vehicle.target = 0;
         end
-        
+        if vehicle.isLeader
+            
+        end
         % lidar scan angles: [0 pi/2 pi 3*pi/2]
 
         % Trailing with lidar
-        if acc_on && vehicle.ranges(1) < 60
+        if acc_on && vehicle.ranges(1) < 70
+            
             % ACC
             range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
@@ -320,11 +332,11 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
             if vehicle.parameters.conn && ttc < 15 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
                 if vehicle.target ~= 0
                     % Connection
-                    if vehicles(vehicle.target).platoon_members(idx_prev) == false % Make sure it is not in the same platoon
+                    if vehicles(idx).parameters.conn && vehicles(vehicle.target).platoon_members(idx) == false % Make sure it is not in the same platoon
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     end
-                elseif vehicles(idx_prev).parameters.conn
+                elseif vehicles(idx).parameters.conn
                     % Connection but not in platoon
                     disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                     vehicle.messages(idx) = 1;
