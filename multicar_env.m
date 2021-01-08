@@ -40,7 +40,7 @@ for v_idx=1:num_vehicles
     detector.sensorOffset = [0,0];
     detector.sensorAngle = 0;
     detector.fieldOfView = 2*pi;
-    detector.maxRange = 50;
+    detector.maxRange = 70;
     detector.robotIdx = v_idx;
     detector.maxDetections = 4;
     detectors{v_idx} = detector;
@@ -73,7 +73,7 @@ for v_idx=1:num_vehicles
         'ranges_prev',lidars{v_idx}(),... % Get lidar data
         'detections',detectors{v_idx}(),...
         'detections_prev',detectors{v_idx}(),...
-        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',0.5,'t_hw',3,'error',0),... % Variables for trailing alg
+        'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',-1.5,'t_hw',-0.5,'error',0),... % Variables for trailing alg, time_gap = 2.5+t_hw
         'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',100,'vel_tresh',5),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
@@ -101,7 +101,7 @@ for idx = 2:numel(time) % simulation loop
     end
     % Check if approaching end of road
     for v_idx = 1:num_vehicles
-        if vehicles(v_idx).pose(1) > 499
+        if vehicles(v_idx).pose(1) > 490
             for v_idx_2 = 1:num_vehicles % Check if any other vehicle targets this one
                 if vehicles(v_idx_2).target == v_idx
                     vehicles(v_idx_2).target = 0; % Reset target
@@ -187,9 +187,9 @@ switch vehicle.parameters.conn
                         % Try to change lane
                         vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
                     case 3 % Notified to join platoon
-                            vehicle.platoon_members(v_idx) = true;
+                            vehicle.platoon_members(v_idx) = true; % Add that vehicle
                             vehicle.isLeader = true;
-                            vehicle.platoon_members(v_id) = true;
+                            vehicle.platoon_members(v_id) = true; % Add ourelfs
                     case 4 % Notified to leave platoon
                         vehicle.platoon_members(v_idx) = false;
                         if  ~all(vehicle.platoon_members) % No vehicles in platoon
@@ -277,44 +277,65 @@ switch vehicle.parameters.conn
             vehicle.target = 0;
         end
         if vehicle.isLeader
-            
+            for v_idx = 1:num_vehicles % Check if any other vehicle targets this one
+                if vehicles(v_idx).target == v_id
+                    vehicles(v_idx).target = 0; % Reset target
+                end
+            end
+            vehicle.platoon_members(:) = false; % Clear platoon matrix
         end
+        vx = vehicle.parameters.desired_vel; % Set defualt speed
+        % Trailing with robot detector
+        if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
+%             nmr_of_detections = size(vehicle.detections,1);
+            for idx = 1:num_vehicles
+                idx_curr = find(vehicle.detections(:,3) == idx, 1);
+                idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
+                if  isempty(idx_curr) || isempty(idx_prev)
+                    continue;
+                end
+                
+                if vehicle.detections(idx_curr,1) < 40 && abs(vehicle.detections(idx_curr,2)) < pi/32 % Check if vehicle is in front
+                    % ACC
+                    velocity_proceeding_veh = (vehicle.detections_prev(idx_prev,1)- vehicle.detections(idx_curr,1))/vehicle.parameters.sample_time;
+                    a = 4*(vehicle.detections(idx_curr,1)-vehicle.trailing_var.t_hw*vehicle.velocity(1)) + ...
+                        2*(velocity_proceeding_veh);
+                    vx = a*vehicle.parameters.sample_time; % Calculate velocity
 
-        % Trailing with lidar
-        if acc_on && vehicle.ranges(1) < 70
-            % ACC
-            range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
-            a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-            vx = a*vehicle.parameters.sample_time; % Calculate velocity
-        else % Drive at defualt velocity
-            vx = vehicle.parameters.desired_vel;
+                end
+            end
+            % old ACC
+%             range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
+%             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
+%             vx = a*vehicle.parameters.sample_time; % Calculate velocity
+            
         end
 end
 w = lane_keeper(vehicle); % Get turn angle from lane keeper
 % Detect and react to close vehicles
 if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
-    nmr_of_detections = size(vehicle.detections,1);
-    for idx = 1:nmr_of_detections
+%     nmr_of_detections = size(vehicle.detections,1);
+    for idx = 1:num_vehicles
+        idx_curr = find(vehicle.detections(:,3) == idx, 1);
         idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
-        if  isempty(idx_prev)
+        if  isempty(idx_curr) || isempty(idx_prev)
             continue;
         end
-        vehicle_exists = find(vehicle.detections(:,3) == idx, 1);
-        if  ~isempty(vehicle_exists) && abs(vehicle.detections(idx_prev,2)) < pi/8 % Check if vehicle is in front and oncoming
+        if abs(vehicle.detections(idx_curr,2)) < pi/16 % Check if vehicle is in front
             % ttc = d/(v_e - v_t)
             if vehicle.parameters.conn
-                ttc = vehicle.detections(idx_prev,1)/(vehicle.velocity(1) - vehicles(idx).velocity(1)); %% ttc conn
+                ttc = vehicle.detections(idx_curr,1)/(vehicle.velocity(1) - vehicles(idx).velocity(1)); %% ttc conn
             else
-                ttc = vehicle.detections(idx_prev,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_prev,1)); %% ttc with sensor
+                ttc = vehicle.detections(idx_curr,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_curr,1)); %% ttc with sensor
             end
-            if vehicle.parameters.conn && ttc < 15 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
-                if vehicle.target ~= 0
+            if ttc < 6 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
+                if vehicle.parameters.conn && vehicle.target ~= 0
                     % Connection
                     if vehicles(idx).parameters.conn && vehicles(vehicle.target).platoon_members(idx) == false % Make sure it is not in the same platoon
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     end
-                elseif vehicles(idx).parameters.conn
+                elseif vehicle.parameters.conn && vehicles(idx).parameters.conn
                     % Connection but not in platoon
                     disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                     vehicle.messages(idx) = 1;

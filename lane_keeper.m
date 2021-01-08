@@ -7,7 +7,7 @@ switch vehicle.parameters.lane
         
         err_right = range-vehicle.lane_keeping_var.dist;
         if err_right > 1
-            err_right = 0.05*err_right;
+            err_right = 0.5*err_right;
         end
         w = -0.15*err_right + 1.5*range_d;
         
@@ -18,7 +18,7 @@ switch vehicle.parameters.lane
         err_left = range-vehicle.lane_keeping_var.dist;
         
         if err_left > 1
-            err_left = 0.05*err_left;
+            err_left = 0.5*err_left;
         end
         w = 0.15*err_left + -1.5*range_d;
 end
