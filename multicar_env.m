@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
 close all, clc, clear all
 
-load('test_case1')
+load('test_case2')
 
 % - Define vehicle -
 max_acc = 5; % [m/s^2] max acceleration/deacceleration
@@ -75,7 +75,7 @@ for v_idx=1:num_vehicles
         'detections_prev',detectors{v_idx}(),...
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',-1.5,'t_hw',-0.5,'error',0),... % Variables for trailing alg, time_gap = 2.5+t_hw
         'lane_keeping_var',struct('dist',f_length+1),... % Variables for lane keeping alg
-        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',100,'vel_tresh',5),...
+        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',150,'vel_tresh',6),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...
@@ -198,6 +198,7 @@ for idx = 2:numel(time) % simulation loop
     ylim([20 30])
     xlim([0 500])
     set(gcf, 'Position',  [5, 500, 1900, 300]) % Set window position and size
+    pause(0.012)
 end
 
 %% Vehicle controller
@@ -355,8 +356,8 @@ switch vehicle.parameters.conn
                 if vehicle.detections(idx_curr,1) < 40 && abs(vehicle.detections(idx_curr,2)) < pi/32 % Check if vehicle is in front
                     % ACC
                     velocity_proceeding_veh = (vehicle.detections_prev(idx_prev,1)- vehicle.detections(idx_curr,1))/vehicle.parameters.sample_time;
-                    a = 4*(vehicle.detections(idx_curr,1)-vehicle.trailing_var.t_hw*vehicle.velocity(1)) + ...
-                        2*(velocity_proceeding_veh);
+                    a = 8*(vehicle.detections(idx_curr,1)-vehicle.trailing_var.t_hw*vehicle.velocity(1)) + ...
+                        4*(velocity_proceeding_veh);
                     vx = a*vehicle.parameters.sample_time; % Calculate velocity
 
                 end
@@ -386,9 +387,12 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                 ttc = vehicle.detections(idx_curr,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_curr,1)); %% ttc with sensor
             end
             if ttc < 6 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
-                if vehicle.parameters.conn && vehicle.target ~= 0
+                if vehicle.parameters.conn
                     % Connection
-                    if vehicles(idx).parameters.conn && vehicles(vehicle.target).platoon_members(idx) == false % Make sure it is not in the same platoon
+                    if vehicles(idx).parameters.conn && vehicle.target ~= 0 &&vehicles(vehicle.target).platoon_members(idx) == false % Make sure it is not in the same platoon
+                        disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
+                        vehicle.messages(idx) = 1;
+                    elseif vehicles(idx).parameters.conn && vehicle.isLeader == true
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     end
