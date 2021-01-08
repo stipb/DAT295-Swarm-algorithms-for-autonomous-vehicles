@@ -82,7 +82,38 @@ for v_idx=1:num_vehicles
         'target',0);
 end
 allRanges = cell(1,num_vehicles);
+
 for idx = 2:numel(time) % simulation loop
+    
+    if idx == 3
+        % Init display
+        text(10, 55, '\underline{Vehicle}','FontSize',12,'Interpreter', 'latex')
+        text(35, 55, '\underline{Connection}','FontSize',12,'Interpreter', 'latex') 
+        text(69, 55, '\underline{Velocity[km/h]}','FontSize',11,'Interpreter', 'latex') 
+        text(106, 55, '\underline{Target}','FontSize',11,'Interpreter', 'latex') 
+        headers = cell(1,num_vehicles);
+        dots = cell(1,num_vehicles);
+        conn_indicator = cell(1,num_vehicles);
+        speed_indicator = cell(1,num_vehicles);
+        target_indicator = cell(1,num_vehicles);
+        for i=1:num_vehicles
+            headers{i} = text(10,55-i*5,['Vehicle ' num2str(i)]);
+            dots{i} = text(46,61-i*5,'.','Fontsize',40,'Color','Green');
+            speed_indicator{i} = text(78,55-i*5,'0','Fontsize',10);
+            target_indicator{i} = text(111,55-i*5,'[ ]','Fontsize',10);
+        end
+    end
+    if idx > 3
+        for i=1:num_vehicles % Update display
+            if vehicles(i).parameters.conn == true
+                set(dots{i}, 'Color','Green')
+            else
+                set(dots{i}, 'Color','Red')
+            end
+            set(speed_indicator{i},'String',num2str(vehicles(i).velocity(1)*3.6))
+            set(target_indicator{i},'String',num2str(vehicles(i).target))
+        end
+    end
     % Get lidar range and execute controllers
     for v_idx = 1:num_vehicles
         % LiDAR
@@ -94,7 +125,7 @@ for idx = 2:numel(time) % simulation loop
         vehicles(v_idx).detections = detections;
         vehicles = swarmVehicleController(vehicles,v_idx,max_acc);
     end
-    % Update poses
+    % Update poses and color
     for v_idx = 1:num_vehicles
         vehicles(v_idx).pose = vehicles(v_idx).pose + vehicles(v_idx).velocity*sample_time; % Update
         poses(:,v_idx) = vehicles(v_idx).pose;
@@ -140,7 +171,7 @@ for idx = 2:numel(time) % simulation loop
     env(1:num_vehicles,poses,allRanges)
     ylim([20 30])
     xlim([0 500])
-    set(gcf, 'Position',  [5, 500, 1900, 100]) % Set window position and size
+    set(gcf, 'Position',  [5, 500, 1900, 200]) % Set window position and size
 end
 
 %% Vehicle controller

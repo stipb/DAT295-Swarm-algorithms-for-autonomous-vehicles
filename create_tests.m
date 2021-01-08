@@ -13,7 +13,7 @@ init_y_position = [26 26 24 24];
 init_vel = [50 52 60 62]./3.6; % Initial velocity for vehicles
 init_ang = [0 0 0 0]; % Starting angle for vehicles
 
-lane = [2 2 1 1]; % Which lane the vehicles should drive in
+lane = [1 2 1 1]; % Which lane the vehicles should drive in
 init_conn = [false true true true]; % Set if vehicles should have communcation enabled
 
 % Fill in these variables for events that happen during simulation
@@ -30,18 +30,6 @@ ec_times = [280];
 % Change lane
 cl_ids = [3];
 cl_times = [90];
-
-% Break communication
-bc_ids = [];
-bc_times = [];
-
-% Enable communication
-ec_ids = [];
-ec_times = [];
-
-% Change lane
-cl_ids = [];
-cl_times = [];
 
 
 % Do checks for variables
