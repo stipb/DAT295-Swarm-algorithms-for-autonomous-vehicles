@@ -31,7 +31,10 @@ ec_times = [];
 cl_ids = [];
 cl_times = [];
 
-
+% Change velocity
+cv_ids = [3];
+cv_times = [140];
+cv_vel = [53];
 % Do checks for variables
 if num_vehicles ~= length(init_x_position) || num_vehicles ~= length(init_y_position) || num_vehicles ~= length(init_conn)... 
         || num_vehicles ~=length(init_vel) || num_vehicles ~= length(init_ang) || num_vehicles ~= length(lane)
@@ -44,6 +47,9 @@ if length(ec_ids) ~= length(ec_times)
     error('The length of ec_ids and ec_times need to be the same size.')
 end
 if length(cl_ids) ~= length(cl_times)
+    error('The length of cl_ids and cl_times need to be the same size.')
+end
+if length(cv_ids) ~= length(cv_times) && length(cl_times) ~= length(cv_vel)
     error('The length of cl_ids and cl_times need to be the same size.')
 end
 save(test_name)

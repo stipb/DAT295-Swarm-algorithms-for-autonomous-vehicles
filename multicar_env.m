@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
 close all, clc, clear all
 
-load('test_case3')
+load('test_case2')
 
 % - Define vehicle -
 max_acc = 5; % [m/s^2] max acceleration/deacceleration
@@ -194,6 +194,15 @@ for idx = 2:numel(time) % simulation loop
             end
         end
     end
+    if ~isempty(cv_ids) % Enable communication
+        for i=1:length(cv_ids)
+            if idx == cv_times(i)
+                vehicles(cv_ids(i)).parameters.desired_vel = cv_vel(i)/3.6;
+                disp(['Vehicle ' num2str(cv_ids(i)) ' slows down to ' num2str(cv_vel(i)) ' [km/h]'])
+            end
+        end
+    end
+    
     % Update visualizer
     env(1:num_vehicles,poses,allRanges)
     ylim([20 30])
