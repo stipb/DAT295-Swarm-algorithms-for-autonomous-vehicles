@@ -392,10 +392,6 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     end
-                elseif vehicle.parameters.conn && vehicles(idx).parameters.conn
-                    % Connection but not in platoon
-                    disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
-                    vehicle.messages(idx) = 1;
                 else
                     %Connectionless
                     disp(['Vehicle ' num2str(v_id) ' changes lane'])
@@ -419,5 +415,3 @@ vehicle.ranges_prev = vehicle.ranges; % Save range
 vehicle.detections_prev = vehicle.detections; % Save detections
 vehicles(v_id) = vehicle; % Update current vehicle
 end
-
-
