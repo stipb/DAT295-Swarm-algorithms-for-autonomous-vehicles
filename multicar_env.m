@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
 close all, clc, clear all
 
-load('test_case2')
+load('test_case3')
 
 % - Define vehicle -
 max_acc = 5; % [m/s^2] max acceleration/deacceleration
@@ -86,6 +86,7 @@ allRanges = cell(1,num_vehicles);
 nmr_cols = ceil(num_vehicles/5);
 
 for idx = 2:numel(time) % simulation loop
+    tic
     if nmr_cols > 1
         nmr_veh = 5;
     else
@@ -198,7 +199,10 @@ for idx = 2:numel(time) % simulation loop
     ylim([20 30])
     xlim([0 500])
     set(gcf, 'Position',  [5, 500, 1900, 300]) % Set window position and size
-    pause(0.012)
+    a = toc;
+    if a < sample_time
+        pause(sample_time-a)
+    end
 end
 
 %% Vehicle controller
