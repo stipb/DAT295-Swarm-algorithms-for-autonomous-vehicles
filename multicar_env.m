@@ -93,23 +93,26 @@ for idx = 2:numel(time) % simulation loop
     end
     if idx == 3
         % Init display
-        headers = cell(1,num_vehicles);
+        v_ids = cell(1,num_vehicles);
         dots = cell(1,num_vehicles);
         conn_indicator = cell(1,num_vehicles);
         speed_indicator = cell(1,num_vehicles);
         target_indicator = cell(1,num_vehicles);
+        text(10, 40, '.','FontSize',40,'Color','Magenta','Interpreter', 'latex')
+        text(15, 36, 'Leader','FontSize',11,'Interpreter', 'latex')
+        text(40, 40, '.','FontSize',40,'Color','Black','Interpreter', 'latex')
+        text(45, 36, 'Not leader','FontSize',11,'Interpreter', 'latex')
         for col = 1:nmr_cols
             text(10+125*(col-1), 71, '\underline{Vehicle}','FontSize',12,'Interpreter', 'latex')
             text(35+125*(col-1), 71, '\underline{Connection}','FontSize',12,'Interpreter', 'latex') 
             text(69+125*(col-1), 71, '\underline{Velocity[km/h]}','FontSize',11,'Interpreter', 'latex') 
             text(106+125*(col-1), 71, '\underline{Target}','FontSize',11,'Interpreter', 'latex') 
-
             if col == nmr_cols
                 nmr_veh = num_vehicles - (nmr_cols-1)*5;
             end
             for i=1:nmr_veh
-                headers{i+(col-1)*5} = text(10+125*(col-1),71-i*5,['Vehicle ' num2str(i+(col-1)*5)]);
-                dots{i+(col-1)*5} = text(46+125*(col-1),77-i*5,'.','Fontsize',40,'Color','Green');
+                v_ids{i+(col-1)*5} = text(10+125*(col-1),71-i*5,['Vehicle ' num2str(i+(col-1)*5)],'Color','black');
+                dots{i+(col-1)*5} = text(46+125*(col-1),74-i*5,'.','Fontsize',40,'Color','Green','Interpreter', 'latex');
                 speed_indicator{i+(col-1)*5} = text(78+125*(col-1),71-i*5,'0','Fontsize',10);
                 target_indicator{i+(col-1)*5} = text(111+125*(col-1),71-i*5,'[ ]','Fontsize',10);
             end
@@ -126,6 +129,12 @@ for idx = 2:numel(time) % simulation loop
                 else
                     set(dots{i+(col-1)*5}, 'Color','Red')
                 end
+                if vehicles(i+(col-1)*5).isLeader == true
+                    set(v_ids{i+(col-1)*5}, 'Color','Magenta')
+                else
+                    set(v_ids{i+(col-1)*5}, 'Color','Black')
+                end 
+                
                 set(speed_indicator{i+(col-1)*5},'String',num2str(vehicles(i+(col-1)*5).velocity(1)*3.6))
                 set(target_indicator{i+(col-1)*5},'String',num2str(vehicles(i+(col-1)*5).target))
             end
