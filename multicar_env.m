@@ -1,23 +1,14 @@
 %% Multi vehicle simulation
 close all, clc, clear all
-% % - Init -
-% num_vehicles = 4;
-% sample_time = 0.1; % Time step [s]
-% sim_length = 60; % Simulation time [s]
-% addpath('map')
-% 
-% % Set initial speed for each vehicle:
-% init_vel = [11 12 23 27]./3.6;
-% init_ang = [-pi/16 -pi/50 -pi/16 -pi/16];
-% % init_ang = [0 0 0];
-% lane = [2 2 1 1];
+
 load('test_case1')
-max_acc = 5; % [m/s^2] max acceleration/deacceleration
+
 % - Define vehicle -
-wheel_radius = 0.05;  % Wheel radius [m]
+max_acc = 5; % [m/s^2] max acceleration/deacceleration
 f_length = 1;     % Distance from CG to front wheels [m]
-r_length = 0.25;         % Distance from CG to rear wheels [m]
-vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
+% wheel_radius = 0.05;  % Wheel radius [m]
+% r_length = 0.25;         % Distance from CG to rear wheels [m]
+% vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
 
 % - Create environment -
 env = MultiRobotEnv(num_vehicles);
@@ -98,19 +89,16 @@ for idx = 2:numel(time) % simulation loop
         ranges = lidars{v_idx}(); % Get lidar data
         vehicles(v_idx).ranges = ranges;
         allRanges{v_idx} = ranges;
-        
         % Robotdetector
-        detections = detectors{v_idx}();
+        detections = detectors{v_idx}(); % Get detector data
         vehicles(v_idx).detections = detections;
         vehicles = swarmVehicleController(vehicles,v_idx,max_acc);
     end
-    
     % Update poses
     for v_idx = 1:num_vehicles
         vehicles(v_idx).pose = vehicles(v_idx).pose + vehicles(v_idx).velocity*sample_time; % Update
         poses(:,v_idx) = vehicles(v_idx).pose;
     end
-    
     % Check if approaching end of road
     for v_idx = 1:num_vehicles
         if vehicles(v_idx).pose(1) > 499
@@ -153,8 +141,6 @@ for idx = 2:numel(time) % simulation loop
     ylim([20 30])
     xlim([0 500])
     set(gcf, 'Position',  [5, 500, 1900, 100]) % Set window position and size
-    %     ylim([240 248])
-    %     xlim([11 300])
 end
 
 %% Vehicle controller
@@ -166,17 +152,10 @@ acc_on = true;
 % - add for y- axis
 %TODO: Add automatic emergency braking
 %TODO: Move code to functions
-
 vehicle = vehicles(v_id);
 num_vehicles = length(vehicles);
-
 switch vehicle.parameters.conn
     case true % Connection
-        
-        %Init var
-        min_diff_d_vel = 1000;
-        min_idx = -1;
-        
         % Handle messages
         for v_idx = 1:length(vehicles)
             if v_idx == v_id
@@ -241,7 +220,9 @@ switch vehicle.parameters.conn
                 end
             end
         end
-        
+        %Init var for choosing targets
+        min_diff_d_vel = 1000;
+        min_idx = -1;
         % Get target
         if vehicle.target == 0 % Check if vehicle already have a target
             for v_idx = 1:num_vehicles %
@@ -266,7 +247,6 @@ switch vehicle.parameters.conn
             vehicle.messages(vehicle.target) = 3; % notify target
             disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
         end
-        
         % Follow target
         if vehicle.target ~= 0
             vehicle.parameters.lane = vehicles(vehicle.target).parameters.lane; % Change to target lane
@@ -299,11 +279,9 @@ switch vehicle.parameters.conn
         if vehicle.isLeader
             
         end
-        % lidar scan angles: [0 pi/2 pi 3*pi/2]
 
         % Trailing with lidar
         if acc_on && vehicle.ranges(1) < 70
-            
             % ACC
             range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
@@ -347,20 +325,9 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                     vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
                 end
             end
-            %                 if ttc < 4 && ttc > 0
-            %                     disp('braking')
-            %                     deacc = 8; % [m/s^2]
-            %                     vx = vehicle.velocity(1)*0.5
-            %
-            %ACC
-            %                     range_d = diff([vehicle.detections_prev(idx_prev,1),vehicle.detections(idx,1)]);
-            %                     a = 3*( vehicle.detections(idx,1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-            %                     vx = a*vehicle.parameters.sample_time; % Calculate velocity
-            %                 end
         end
     end
 end
-
 % Limit acceleration
 acc = diff([vehicle.velocity(1), vx]);
 if acc > max_acc
