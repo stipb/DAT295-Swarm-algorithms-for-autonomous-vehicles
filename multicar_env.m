@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
 close all, clc, clear all
 
-load('test_case3')
+load('test_cases/test_case_3')
 
 % - Define vehicle -
 max_acc = 5; % [m/s^2] max acceleration/deacceleration

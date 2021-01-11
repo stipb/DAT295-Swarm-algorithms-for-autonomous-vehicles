@@ -1,6 +1,6 @@
 %% Create tests with this script
 clear all
-test_name = 'test_case2';
+test_name = 'aa';
 % - Init -
 num_vehicles = 4;
 sample_time = 0.05; % Time step [s]
@@ -52,5 +52,5 @@ end
 if length(cv_ids) ~= length(cv_times) && length(cl_times) ~= length(cv_vel)
     error('The length of cl_ids and cl_times need to be the same size.')
 end
-save(test_name)
+save(['test_cases/' test_name])
 disp(['Saved ' test_name])
