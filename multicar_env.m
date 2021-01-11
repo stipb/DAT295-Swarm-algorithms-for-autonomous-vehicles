@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
 close all, clc, clear all
 
-load('test_case5')
+load('test_case3')
 
 % - Define vehicle -
 max_acc = 5; % [m/s^2] max acceleration/deacceleration
@@ -15,7 +15,7 @@ env = MultiRobotEnv(num_vehicles);
 env.robotRadius = f_length;
 env.hasWaypoints = false;
 env.showTrajectory = false;
-env.plotSensorLines = true;
+env.plotSensorLines = false;
 load map_v2;
 close
 env.mapName = 'map';
@@ -29,8 +29,8 @@ for v_idx=1:num_vehicles
     % LIDAR
     lidar = MultiRobotLidarSensor;
     lidar.sensorOffset = [0,0];
-    lidar.scanAngles = [0 pi/2 pi 3*pi/2];
-    lidar.maxRange = 70;
+    lidar.scanAngles = [pi/2 3*pi/2];
+    lidar.maxRange = 10;
     lidar.robotIdx = v_idx;
     lidars{v_idx} = lidar;
     attachLidarSensor(env,lidar);
