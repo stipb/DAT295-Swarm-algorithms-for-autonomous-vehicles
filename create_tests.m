@@ -1,27 +1,27 @@
 %% Create tests with this script
 clear all
-test_name = 'test_case3';
+test_name = 'test_case2';
 % - Init -
-num_vehicles = 3;
+num_vehicles = 4;
 sample_time = 0.05; % Time step [s]
-sim_length = 30; % Simulation time [s]
+sim_length = 19; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [100 120 140];
-init_y_position = [26 26 26];
+init_x_position = [50 60 120 130];
+init_y_position = [24 26 26 26];
 
-init_vel = [52 55 55]./3.6; % Initial velocity for vehicles
-init_ang = [0 0 0]; % Starting angle for vehicles
+init_vel = [55 55 30 30]./3.6; % Initial velocity for vehicles
+init_ang = [0 0 0 0]; % Starting angle for vehicles
 
-lane = [2 2 2]; % Which lane the vehicles should drive in
-init_conn = [true true true]; % Set if vehicles should have communcation enabled
+lane = [1 2 2 2]; % Which lane the vehicles should drive in
+init_conn = [true true true true]; % Set if vehicles should have communcation enabled
 
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
 
 % Break communication
-bc_ids = [1];
-bc_times = [140];
+bc_ids = [];
+bc_times = [];
 
 % Enable communication
 ec_ids = [];
@@ -32,9 +32,9 @@ cl_ids = [];
 cl_times = [];
 
 % Change velocity
-cv_ids = [3];
-cv_times = [140];
-cv_vel = [53];
+cv_ids = [0];
+cv_times = [0];
+cv_vel = [0];
 % Do checks for variables
 if num_vehicles ~= length(init_x_position) || num_vehicles ~= length(init_y_position) || num_vehicles ~= length(init_conn)... 
         || num_vehicles ~=length(init_vel) || num_vehicles ~= length(init_ang) || num_vehicles ~= length(lane)
