@@ -267,7 +267,7 @@ switch vehicle.parameters.conn
                             vehicle.platoon_members(v_id) = true; % Add ourelfs
                     case 4 % Notified to leave platoon
                         vehicle.platoon_members(v_idx) = false;
-                        if  ~all(vehicle.platoon_members) % No vehicles in platoon
+                        if  ~any(vehicle.platoon_members) % No vehicles in platoon
                             vehicle.isLeader = false;
                         end
                     case 5 %Notified by target that it has another target
@@ -282,10 +282,11 @@ switch vehicle.parameters.conn
             end
         end
         if vehicle.target ~= 0 % Do checks if conn is still established and if targets are correct
+            vehicle.isLeader = false;
             % Check if conn established
             if vehicles(vehicle.target).parameters.conn == false
                 vehicle.target = 0;
-                vehicle.isLeader = false;
+                
             else
                  % Check if someone targets me while i already have a target
                 for v_idx = 1:num_vehicles % Get who targets me
