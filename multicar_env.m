@@ -306,7 +306,6 @@ switch vehicle.parameters.conn
             % Check if conn established
             if vehicles(vehicle.target).parameters.conn == false
                 vehicle.target = 0;
-                
             else
                  % Check if someone targets me while i already have a target
                 for v_idx = 1:num_vehicles % Get who targets me
@@ -412,7 +411,6 @@ switch vehicle.parameters.conn
                 if  isempty(idx_curr) || isempty(idx_prev)
                     continue;
                 end
-                
                 if vehicle.detections(idx_curr,1) < 60 && abs(vehicle.detections(idx_curr,2)) < pi/32 % Check if vehicle is in front
                     % ACC
                     velocity_proceeding_veh = (vehicle.detections_prev(idx_prev,1)- vehicle.detections(idx_curr,1))/vehicle.parameters.sample_time;
@@ -422,11 +420,6 @@ switch vehicle.parameters.conn
 
                 end
             end
-            % old ACC
-%             range_d = diff([vehicle.ranges_prev(1),vehicle.ranges(1)]);
-%             a = 3*( vehicle.ranges(1) - vehicle.trailing_var.t_hw*vehicle.velocity(1)) + 1*(range_d); % Estimate required acceleration
-%             vx = a*vehicle.parameters.sample_time; % Calculate velocity
-            
         end
 end
 w = lane_keeper(vehicle); % Get turn angle from lane keeper
@@ -483,7 +476,7 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                     elseif vehicles(idx).parameters.conn && vehicle.isLeader == true % If leader ask vehicle to change lane 
                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
-                    else
+                    elseif vehicle.target ~= idx
                     disp(['Vehicle ' num2str(v_id) ' changes lane'])
                     % Try to change lane
                     vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1);
