@@ -75,7 +75,7 @@ for v_idx=1:num_vehicles
         'detections_prev',detectors{v_idx}(),...
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',-1.5,'t_hw',2,'error',0,'brake',false),... % Variables for trailing alg, time_gap = 2.5+t_hw
         'lane_keeping_var',struct('dist',f_length+0.65,'isChangingLane',false),... % Variables for lane keeping alg
-        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',50,'vel_tresh',6),...
+        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',70,'vel_tresh',6),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...
@@ -167,7 +167,7 @@ for idx = 2:numel(time) % simulation loop
             for v_idx_2 = 1:num_vehicles % Check if any other vehicle targets this one
                 if vehicles(v_idx_2).target == v_idx
                     vehicles(v_idx_2).target = 0; % Reset target
-                    vehicles(v_idx_2).messages(v_idx) = 3; % notify target that it leaves platoon
+                    vehicles(v_idx_2).messages(v_idx) = 4; % notify target that it leaves platoon
                     disp(['Vehicle ' num2str(v_idx_2) ' lost ' num2str(v_idx)])
                 end
             end
@@ -285,7 +285,9 @@ switch vehicle.parameters.conn
                             vehicle.platoon_members(v_id) = true; % Add ourelfs
                     case 4 % Notified to leave platoon
                         vehicle.platoon_members(v_idx) = false;
-                        if  ~any(vehicle.platoon_members) % No vehicles in platoon
+                        platoon_members_temp = vehicle.platoon_members;
+                        platoon_members_temp(v_id) = 0;
+                        if  ~any(platoon_members_temp) % No vehicles in platoon
                             vehicle.isLeader = false;
                         end
                     case 5 %Notified by target that it has another target
@@ -362,8 +364,30 @@ switch vehicle.parameters.conn
             err_f = vehicles(idx).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw_conn*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
             vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
             vehicle.trailing_var.error = err_f;
-        else % Drive at defualt velocity
-            vx = vehicle.parameters.desired_vel;
+        else % drive with acc
+            vx = vehicle.parameters.desired_vel; % Set defualt speed
+            % Trailing with robot detector
+            if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
+    %             nmr_of_detections = size(vehicle.detections,1);
+                for idx = 1:num_vehicles
+                    idx_curr = find(vehicle.detections(:,3) == idx, 1);
+                    idx_prev = find(vehicle.detections_prev(:,3) == idx, 1);
+                    if  isempty(idx_curr) || isempty(idx_prev)
+                        continue;
+                    end
+
+                    if vehicle.detections(idx_curr,1) < 60 && abs(vehicle.detections(idx_curr,2)) < pi/32 % Check if vehicle is in front
+                        % ACC
+                        velocity_proceeding_veh = (vehicle.detections_prev(idx_prev,1)- vehicle.detections(idx_curr,1))/vehicle.parameters.sample_time;
+                        a = 0.23*(vehicle.detections(idx_curr,1)-vehicle.trailing_var.t_hw*vehicle.velocity(1)) + ...
+                            0.07*(velocity_proceeding_veh);
+                        vx = vehicle.velocity(1) + a*vehicle.parameters.sample_time; % Calculate velocity
+                        if vx < vehicle.parameters.desired_vel
+                            vx = vx + 0.5*(vehicle.parameters.desired_vel-vx);
+                        end
+                    end
+                end
+            end
         end
     case false % No connection
         if vehicle.target ~=0 % if it has target remove it
@@ -424,8 +448,8 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
 %         if v_id ==1 && isInSameLane(vehicle,vehicles(idx))
 %             a = 1;
 %         end
-        if ttc < 3.5 && vehicle.lane_keeping_var.isChangingLane &&...
-                isInSameLane(vehicle,vehicles(idx)) && abs(vehicle.detections(idx_curr,2))>pi/2
+        if ttc < 3.5 && ttc > 0 && vehicle.lane_keeping_var.isChangingLane &&...
+                isInSameLane(vehicle,vehicles(idx)) %&& abs(vehicle.detections(idx_curr,2))>pi/2
            % Cancel lane change manouver if ttc low and vehicle is behind
            % us
            vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
