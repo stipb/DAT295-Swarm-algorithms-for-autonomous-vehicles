@@ -1,0 +1,5 @@
+Evaluation #1: Compare throughput with these three cases:
+			* 4 or more non-connected vehicles.
+			* 4 or more connected vehicles.
+			* 1 or more non-connected along with connected vehicles.
+Evaluation #2:
