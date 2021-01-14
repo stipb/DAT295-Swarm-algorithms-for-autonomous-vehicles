@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
 close all, clc, clear all
 
-load('test_cases/test_case_1')
+load('test_cases/lane_change')
 
 % - Define vehicle -
 max_acc = 5; % [m/s^2] max acceleration/deacceleration
@@ -74,7 +74,7 @@ for v_idx=1:num_vehicles
         'detections',detectors{v_idx}(),...
         'detections_prev',detectors{v_idx}(),...
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',-1.5,'t_hw',2,'error',0),... % Variables for trailing alg, time_gap = 2.5+t_hw
-        'lane_keeping_var',struct('dist',f_length+0.65),... % Variables for lane keeping alg
+        'lane_keeping_var',struct('dist',f_length+0.65,'isChangingLane',false),... % Variables for lane keeping alg
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',150,'vel_tresh',6),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'platoon_members',zeros(1,num_vehicles),...
@@ -177,7 +177,9 @@ for idx = 2:numel(time) % simulation loop
     if ~isempty(cl_ids) % Change lane
         for i=1:length(cl_ids)
             if idx == cl_times(i)
-                vehicles(cl_ids(i)).parameters.lane = mod(vehicles(cl_ids(i)).parameters.lane,2)+1; % Change lane
+                vehicles(cl_ids(i)) = change_lane(vehicles(cl_ids(i)), mod(vehicles(cl_ids(i)).parameters.lane,2)+1);
+%                 vehicles(cl_ids(i)).parameters.lane = mod(vehicles(cl_ids(i)).parameters.lane,2)+1; % Change lane
+%                 vehicles(cl_ids(i)).lane_keeping_var.isChangingLane = true;
                 disp(['Vehicle ' num2str(cl_ids(i)) ' changed lane.'])
             end
         end
@@ -229,6 +231,23 @@ acc_on = true;
 %TODO: Move code to functions
 vehicle = vehicles(v_id);
 num_vehicles = length(vehicles);
+
+% Check if lane change is complete
+if vehicle.lane_keeping_var.isChangingLane
+   if vehicle.parameters.lane == 2 && vehicle.pose(2) >= 28 - vehicle.lane_keeping_var.dist
+       vehicle.lane_keeping_var.isChangingLane = false; % Manouver complete
+       disp('-- Change lane to 2 complete --')
+   end
+   if v_id == 4
+       as = 1;
+   end
+   if vehicle.parameters.lane == 1 && vehicle.pose(2) <= 21.6666 + vehicle.lane_keeping_var.dist
+       vehicle.lane_keeping_var.isChangingLane = false; % Manouver complete
+       disp('-- Change lane to 1 complete --')
+   end
+end
+
+
 switch vehicle.parameters.conn
     case true % Connection
         % Handle messages
@@ -250,6 +269,7 @@ switch vehicle.parameters.conn
                     case 1 % Other vehicle asks us to change lane
                         if vehicle.target == 0 % Is not following
                             vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1; % Change lane
+                            vehicle.lane_keeping_var.isChangingLane = true;
                             disp(['Vehicle ' num2str(v_id) ' changed lane to ' num2str(vehicle.parameters.lane)])
                             vehicle.parameters.lc_pose = vehicle.pose(1);
                         else
@@ -325,7 +345,9 @@ switch vehicle.parameters.conn
         end
         % Follow target
         if vehicle.target ~= 0
-            vehicle = change_lane(vehicle,vehicles(vehicle.target).parameters.lane);
+            if vehicle.parameters.lane ~= vehicles(vehicle.target).parameters.lane
+                vehicle = change_lane(vehicle,vehicles(vehicle.target).parameters.lane);
+            end
             % Check if there is other vehicles between us and the leader
             % if so follow that one
             rel_pose = 1000*ones(1,num_vehicles);
@@ -395,13 +417,21 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
         if  isempty(idx_curr) || isempty(idx_prev)
             continue;
         end
+        % ttc = d/(v_e - v_t)
+        if vehicle.parameters.conn && vehicles(idx).parameters.conn
+            ttc = vehicle.detections(idx_curr,1)/(vehicle.velocity(1) - vehicles(idx).velocity(1)); %% ttc conn
+        else
+            ttc = vehicle.detections(idx_curr,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_curr,1)); %% ttc with sensor
+        end
+%         if v_id ==1 && isInSameLane(vehicle,vehicles(idx))
+%             a = 1;
+%         end
+        if ttc < 4.5 && vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx))
+           % Cancel lane change manouver
+           vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
+           disp('Canceled manouver due to low ttc')
+        end
         if abs(vehicle.detections(idx_curr,2)) < pi/16 % Check if vehicle is in front
-            % ttc = d/(v_e - v_t)
-            if vehicle.parameters.conn
-                ttc = vehicle.detections(idx_curr,1)/(vehicle.velocity(1) - vehicles(idx).velocity(1)); %% ttc conn
-            else
-                ttc = vehicle.detections(idx_curr,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_curr,1)); %% ttc with sensor
-            end
             if ttc < 3 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
                     velocity_proceeding_veh = (vehicle.detections_prev(idx_prev,1)- vehicle.detections(idx_curr,1))/vehicle.parameters.sample_time;
                     a = 0.23*(vehicle.detections(idx_curr,1)-vehicle.trailing_var.t_hw*vehicle.velocity(1)) + ...
