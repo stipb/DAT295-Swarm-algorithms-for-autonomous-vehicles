@@ -426,8 +426,10 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
 %         if v_id ==1 && isInSameLane(vehicle,vehicles(idx))
 %             a = 1;
 %         end
-        if ttc < 4.5 && vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx))
-           % Cancel lane change manouver
+        if ttc < 4.5 && vehicle.lane_keeping_var.isChangingLane &&...
+                isInSameLane(vehicle,vehicles(idx)) && abs(vehicle.detections(idx_curr,2))>pi/2
+           % Cancel lane change manouver if ttc low and vehicle is behind
+           % us
            vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
            disp('Canceled manouver due to low ttc')
         end

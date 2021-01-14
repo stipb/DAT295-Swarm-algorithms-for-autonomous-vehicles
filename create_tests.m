@@ -4,13 +4,13 @@ test_name = 'lane_change';
 % - Init -
 num_vehicles = 2;
 sample_time = 0.05; % Time step [s]
-sim_length = 14; % Simulation time [s]
+sim_length = 10; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [150 50];
+init_x_position = [50 44];
 init_y_position = [24 26];
 
-init_vel = [55 120]./3.6; % Initial velocity for vehicles
+init_vel = [55 56]./3.6; % Initial velocity for vehicles
 init_ang = [0 0]; % Starting angle for vehicles
 
 lane = [1 2]; % Which lane the vehicles should drive in
