@@ -1,20 +1,20 @@
 %% Create tests with this script
 clear all
-test_name = 'lane_change';
+test_name = 'test_case_many';
 % - Init -
-num_vehicles = 2;
+num_vehicles = 10;
 sample_time = 0.05; % Time step [s]
-sim_length = 10; % Simulation time [s]
+sim_length = 40; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [50 44];
-init_y_position = [24 26];
+init_x_position = [10 50 60 80 150 180 210 250 260 300];
+init_y_position = [24 26 26 26 24 24 26 24 24 26];
 
-init_vel = [55 56]./3.6; % Initial velocity for vehicles
-init_ang = [0 0]; % Starting angle for vehicles
+init_vel = [55 56 30 40 70 40 56 30 40 70]./3.6; % Initial velocity for vehicles
+init_ang = [0 0 0 0 0 0 0 0 0 0]; % Starting angle for vehicles
 
-lane = [1 2]; % Which lane the vehicles should drive in
-init_conn = [false true]; % Set if vehicles should have communcation enabled
+lane = [1 2 1 2 1 2 2 1 2 2]; % Which lane the vehicles should drive in
+init_conn = [false true false true true true false true true true]; % Set if vehicles should have communcation enabled
 
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
@@ -28,8 +28,8 @@ ec_ids = [];
 ec_times = [];
 
 % Change lane
-cl_ids = [1];
-cl_times = [110];
+cl_ids = [];
+cl_times = [];
 
 % Change velocity
 cv_ids = [0];
