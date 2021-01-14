@@ -4,7 +4,8 @@ close all, clc, clear all
 load('test_cases/test_case_many')
 
 % - Define vehicle -
-max_acc = 5; % [m/s^2] max acceleration/deacceleration
+max_acc = 2.5; % [m/s^2] max acceleration/deacceleration
+max_deacc = 5;
 f_length = 1;     % Distance from CG to front wheels [m]
 % wheel_radius = 0.05;  % Wheel radius [m]
 % r_length = 0.25;         % Distance from CG to rear wheels [m]
@@ -154,7 +155,7 @@ for idx = 2:numel(time) % simulation loop
         % Robotdetector
         detections = detectors{v_idx}(); % Get detector data
         vehicles(v_idx).detections = detections;
-        vehicles = swarmVehicleController(vehicles,v_idx,max_acc);
+        vehicles = swarmVehicleController(vehicles,v_idx,max_acc,max_deacc);
     end
     % Update poses and color
     for v_idx = 1:num_vehicles
@@ -344,7 +345,8 @@ switch vehicle.parameters.conn
         end
         % Follow target
         if vehicle.target ~= 0
-            if vehicle.parameters.lane ~= vehicles(vehicle.target).parameters.lane
+            if vehicle.parameters.lane ~= vehicles(vehicle.target).parameters.lane &&...
+                    vehicles(vehicle.target).pose(1)-vehicle.pose(1) < 30
                 vehicle = change_lane(vehicle,vehicles(vehicle.target).parameters.lane); % Try to change lane
             end
             % Check if there is other vehicles between us and the leader

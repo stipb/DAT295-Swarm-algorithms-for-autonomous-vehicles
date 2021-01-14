@@ -3,7 +3,7 @@ function vehicle = change_lane(vehicle, target_lane)
 changeLane = true;
 if ~isempty(vehicle.detections)
     for i=1:length(vehicle.detections(:,2))
-        if abs(sin(vehicle.detections(i,2))) > 0.5 && vehicle.detections(i,1) < 5 % Check if another vehicle is close
+        if abs(sin(vehicle.detections(i,2))) > 0.5 && vehicle.detections(i,1) < 7 % Check if another vehicle is close
             changeLane = false;
         end
     end

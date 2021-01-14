@@ -10,11 +10,11 @@ sim_length = 40; % Simulation time [s]
 init_x_position = [10 50 60 80 150 180 210 250 260 300];
 init_y_position = [24 26 26 26 24 24 26 24 24 26];
 
-init_vel = [55 56 30 40 70 40 56 30 40 70]./3.6; % Initial velocity for vehicles
+init_vel = [55 56 40 45 60 40 56 35 40 60]./3.6; % Initial velocity for vehicles
 init_ang = [0 0 0 0 0 0 0 0 0 0]; % Starting angle for vehicles
 
 lane = [1 2 1 2 1 2 2 1 2 2]; % Which lane the vehicles should drive in
-init_conn = [false true false true true true false true true true]; % Set if vehicles should have communcation enabled
+init_conn = [true true true true true true true true true true]; % Set if vehicles should have communcation enabled
 
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
