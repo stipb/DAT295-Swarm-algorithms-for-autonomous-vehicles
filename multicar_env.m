@@ -41,7 +41,7 @@ for v_idx=1:num_vehicles
     detector.sensorOffset = [0,0];
     detector.sensorAngle = 0;
     detector.fieldOfView = 2*pi;
-    detector.maxRange = 50;
+    detector.maxRange = 60;
     detector.robotIdx = v_idx;
     detector.maxDetections = 4;
     detectors{v_idx} = detector;
@@ -76,7 +76,7 @@ for v_idx=1:num_vehicles
         'detections_prev',detectors{v_idx}(),...
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',-1.5,'t_hw',2,'error',0,'brake',false),... % Variables for trailing alg, time_gap = 2.5+t_hw
         'lane_keeping_var',struct('dist',f_length+0.65,'isChangingLane',false),... % Variables for lane keeping alg
-        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',70,'vel_tresh',6),...
+        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',60,'vel_tresh',6),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...
@@ -222,7 +222,7 @@ for idx = 2:numel(time) % simulation loop
 end
 
 %% Vehicle controller
-function vehicles = swarmVehicleController(vehicles,v_id,max_acc)
+function vehicles = swarmVehicleController(vehicles,v_id,max_acc, max_deacc)
 acc_on = true;
 %Done: Implement robot detectors (instead of lidar or with) 
 %Done: Add swarm algorithm (~done)
@@ -346,7 +346,7 @@ switch vehicle.parameters.conn
         % Follow target
         if vehicle.target ~= 0
             if vehicle.parameters.lane ~= vehicles(vehicle.target).parameters.lane &&...
-                    vehicles(vehicle.target).pose(1)-vehicle.pose(1) < 30
+                    vehicles(vehicle.target).pose(1)-vehicle.pose(1) < 50
                 vehicle = change_lane(vehicle,vehicles(vehicle.target).parameters.lane); % Try to change lane
             end
             % Check if there is other vehicles between us and the leader
@@ -498,8 +498,8 @@ acc = diff([vehicle.velocity(1), vx]);
 if acc > max_acc
     vx = vehicle.velocity(1) + max_acc*vehicle.parameters.sample_time;
 end
-if acc < -max_acc
-    vx = vehicle.velocity(1) - max_acc*vehicle.parameters.sample_time;
+if acc < -max_deacc
+    vx = vehicle.velocity(1) - max_deacc*vehicle.parameters.sample_time;
 end
 vehicle.velocity = bodyToWorld([vx;0;w], vehicle.pose); % To world coordinates
 vehicle.ranges_prev = vehicle.ranges; % Save range
