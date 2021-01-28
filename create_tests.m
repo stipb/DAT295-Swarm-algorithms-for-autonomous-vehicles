@@ -3,18 +3,18 @@ clear all
 test_name = 'test_case_5v';
 % - Init -
 num_vehicles = 5;
-sample_time = 0.1; % Time step [s]
-sim_length = 40; % Simulation time [s]
+sample_time = 0.05; % Time step [s]
+sim_length = 50; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [10 50 60 80 150];
-init_y_position = [24 26 26 26 24];
+init_x_position = [10 50 60 80 120];
+init_y_position = [24 26 26 26 26];
 
-init_vel = [55 56 40 45 60]./3.6; % Initial velocity for vehicles
+init_vel = [55 56 40 50 42]./3.6; % Initial velocity for vehicles
 init_ang = [0 0 0 0 0]; % Starting angle for vehicles
 
-lane = [1 2 1 2 1]; % Which lane the vehicles should drive in
-init_conn = [true true true true true]; % Set if vehicles should have communcation enabled
+lane = [1 2 1 2 2]; % Which lane the vehicles should drive in
+init_conn = [true true true true false]; % Set if vehicles should have communcation enabled
 % init_conn = init_conn-1;
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
