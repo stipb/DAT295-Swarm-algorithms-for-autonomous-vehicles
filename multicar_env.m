@@ -1,7 +1,7 @@
 %% Multi vehicle simulation
-close all, clear all
+close all
 
-load('test_cases/test_case_many')
+% load('test_cases/test_case_crash')
 
 % Flags
 save_data = true; % Flag to save data
@@ -28,7 +28,7 @@ detectors = cell(1,num_vehicles);
 for v_idx=1:num_vehicles
     % LIDAR
     lidar = MultiRobotLidarSensor;
-    lidar.sensorOffset = [0,0];
+    lidar.sensorOffset = [1,0];
     lidar.scanAngles = [pi/2 3*pi/2];
     lidar.maxRange = 7;
     lidar.robotIdx = v_idx;
@@ -79,7 +79,7 @@ for v_idx=1:num_vehicles
         'detections_prev',detectors{v_idx}(),...
         'trailing_var',struct('kp',0.45,'kd',0.25,'t_hw_conn',-1.5,'t_hw',2,'error',0,'brake',false),... % Variables for trailing alg, time_gap = 2.5+t_hw
         'lane_keeping_var',struct('dist',f_length+0.65,'isChangingLane',false),... % Variables for lane keeping alg
-        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',60,'vel_tresh',6),...
+        'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',60,'vel_tresh',10),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...

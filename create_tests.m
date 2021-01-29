@@ -1,20 +1,20 @@
 %% Create tests with this script
 clear all
-test_name = 'test_case_5v';
+test_name = 'test_case_crash';
 % - Init -
-num_vehicles = 5;
+num_vehicles = 11;
 sample_time = 0.05; % Time step [s]
-sim_length = 50; % Simulation time [s]
+sim_length = 100; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [10 50 60 80 120];
-init_y_position = [24 26 26 26 26];
+init_x_position = [325.518821885936,159.306333349492,271.912073276339,456.684719175856,33.7217166714185,10.5484707869113,413.177195428673,249.842766049155,426.676127378040,296.400568809999,127.826569423917];
+init_y_position = [24.7540352969461,23.9849124569386,24.5832889144960,25.8893940573100,23.3369882092586,25.1596203753985,26.8968865249549,24.3227282639611,23.2585343642035,26.2745629403288,26.5914627393612];
 
-init_vel = [55 56 40 50 42]./3.6; % Initial velocity for vehicles
-init_ang = [0 0 0 0 0]; % Starting angle for vehicles
+init_vel = [17.1919469328649,15.8710169600455,16.6407066601574,16.6677742411436,13.3874766434682,12.4357318420531,19.0394226037803,17.0833583110194,17.1692354962701,23.4199310980918,19.3522480609182]; % Initial velocity for vehicles
+init_ang = [-0.0751946446522755,-0.0244077912330841,0.00301734643632373,0.0651627850984710,-0.0345143379407278,-0.0694066456346387,0.0975563115026982,-0.00160883834274084,0.0641335536524731,0.0846485701119370,0.000753998307452555]; % Starting angle for vehicles
 
-lane = [1 2 1 2 2]; % Which lane the vehicles should drive in
-init_conn = [true true true true false]; % Set if vehicles should have communcation enabled
+lane = [2,2,2,1,1,2,2,1,1,1,2]; % Which lane the vehicles should drive in
+init_conn = [true,true,true,true,true,true,true,true,true,true,true]; % Set if vehicles should have communcation enabled
 % init_conn = init_conn-1;
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
