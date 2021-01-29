@@ -2,8 +2,6 @@
 close all, clear all
 
 load('test_cases/test_case_many')
-% init_conn = init_conn - 1;
-% sim_length = 100;
 
 % Flags
 save_data = true; % Flag to save data
@@ -163,7 +161,6 @@ for t_idx = 2:numel(time) % simulation loop
         vehicles(v_idx).detections = detections;
         vehicles = swarmVehicleController(vehicles,v_idx,max_acc,max_deacc,time(t_idx),init_vel);
     end
-
     % Update poses and color and save data
     for v_idx = 1:num_vehicles
         vehicles(v_idx).pose = vehicles(v_idx).pose + vehicles(v_idx).velocity*sample_time; % Update
@@ -241,10 +238,13 @@ end
 
 %% Plot data
 if save_data == true
+    disp('-- Results --')
     plot_data(velocities,num_vehicles,time)
     throughput = veh_counter/sim_length;
-    disp(['Vehicles per minute: ' num2str(throughput*60)])
+    disp(['Throughput: ' num2str(throughput*60) '[ vehicles/min]'])
     fuelConsumption
+    disp(['Mean time to target: ' num2str(mean(timeToTarget)) ' [s]'])
+    disp('-------------')
 end
 %% Vehicle controller
 function vehicles = swarmVehicleController(vehicles,v_id,max_acc, max_deacc,time,init_vel)

@@ -35,6 +35,7 @@ legend(legend_str)
 xlabel('Time [s]'), ylabel('Fuel consumption [mg]')
 totalFuel = sum(sum(instFuelConsp))/1000;
 disp(['Total fuel consumption: ' num2str(totalFuel) ' [g]'])
+disp(['Fuel consumption per vehicle: ' num2str(totalFuel/num_vehicles) ' [g]'])
 %%
 function tmp = instFuelConsump(s,a)
 % Coefficients
