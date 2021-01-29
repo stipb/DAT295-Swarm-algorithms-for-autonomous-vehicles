@@ -1,15 +1,17 @@
 %% Multi vehicle simulation
-close all, clc, clear all
+close all, clear all
 
 load('test_cases/test_case_many')
+% init_conn = init_conn - 1;
+% sim_length = 100;
+
+% Flags
 save_data = true; % Flag to save data
+timed = false; % Try to match loop time with actual time
 % - Define vehicle -
-max_acc = 2.5; % [m/s^2] max acceleration/deacceleration
-max_deacc = 5;
+max_acc = 2.5; % [m/s^2] max acceleration
+max_deacc = 5; % [m/s^2] max deacceleration
 f_length = 1;     % Distance from CG to front wheels [m]
-% wheel_radius = 0.05;  % Wheel radius [m]
-% r_length = 0.25;         % Distance from CG to rear wheels [m]
-% vehicle_model = FourWheelSteering(wheel_radius,[f_length r_length]);
 
 % - Create environment -
 env = MultiRobotEnv(num_vehicles);
@@ -26,27 +28,24 @@ lidars = cell(1,num_vehicles);
 detectors = cell(1,num_vehicles);
 
 for v_idx=1:num_vehicles
-    
     % LIDAR
     lidar = MultiRobotLidarSensor;
     lidar.sensorOffset = [0,0];
     lidar.scanAngles = [pi/2 3*pi/2];
-    lidar.maxRange = 10;
+    lidar.maxRange = 7;
     lidar.robotIdx = v_idx;
     lidars{v_idx} = lidar;
     attachLidarSensor(env,lidar);
-    
     % RobotDetector
     detector = RobotDetector(env,v_idx);
     detector.sensorOffset = [0,0];
     detector.sensorAngle = 0;
     detector.fieldOfView = 2*pi;
-    detector.maxRange = 70;
+    detector.maxRange = 50;
     detector.robotIdx = v_idx;
-    detector.maxDetections = 4;
+    detector.maxDetections = 10;
     detectors{v_idx} = detector;
-    
-end
+end  
 
 %% Prep simulation
 time = 0:sample_time:sim_length; % Time array
@@ -90,11 +89,9 @@ for v_idx=1:num_vehicles
         'timings',struct('timeGotTarget',0,'timeToTarget',0));
 end
 allRanges = cell(1,num_vehicles);
-
 nmr_cols = ceil(num_vehicles/5);
-
 for t_idx = 2:numel(time) % simulation loop
-    tic
+    tic % Start timer for simulation loop
     if nmr_cols > 1
         nmr_veh = 5;
     else
@@ -102,6 +99,7 @@ for t_idx = 2:numel(time) % simulation loop
     end
     if t_idx == 3
         % Init display
+        clock = text(10,8,'Time 0.00'); text(34,8,'[s]')
         v_ids = cell(1,num_vehicles);
         dots = cell(1,num_vehicles);
         conn_indicator = cell(1,num_vehicles);
@@ -128,6 +126,7 @@ for t_idx = 2:numel(time) % simulation loop
         end
     end
     if t_idx > 3
+        set(clock,'String',['Time: ' num2str(time(t_idx))])
         for col = 1:nmr_cols
             if col == nmr_cols
                 nmr_veh = num_vehicles - (nmr_cols-1)*5;
@@ -162,7 +161,7 @@ for t_idx = 2:numel(time) % simulation loop
         % Robotdetector
         detections = detectors{v_idx}(); % Get detector data
         vehicles(v_idx).detections = detections;
-        vehicles = swarmVehicleController(vehicles,v_idx,max_acc,max_deacc,time(t_idx));
+        vehicles = swarmVehicleController(vehicles,v_idx,max_acc,max_deacc,time(t_idx),init_vel);
     end
 
     % Update poses and color and save data
@@ -235,7 +234,7 @@ for t_idx = 2:numel(time) % simulation loop
     xlim([0 500])
     set(gcf, 'Position',  [5, 500, 1900, 300]) % Set window position and size
     a = toc;
-    if a < sample_time
+    if timed && a < sample_time
         pause(sample_time-a)
     end
 end
@@ -245,16 +244,11 @@ if save_data == true
     plot_data(velocities,num_vehicles,time)
     throughput = veh_counter/sim_length;
     disp(['Vehicles per minute: ' num2str(throughput*60)])
+    fuelConsumption
 end
 %% Vehicle controller
-function vehicles = swarmVehicleController(vehicles,v_id,max_acc, max_deacc,time)
-acc_on = true;
-%Done: Implement robot detectors (instead of lidar or with) 
-%Done: Add swarm algorithm (~done)
-%TODO:
-% - add for y- axis
-%TODO: Add automatic emergency braking
-%TODO: Move code to functions
+function vehicles = swarmVehicleController(vehicles,v_id,max_acc, max_deacc,time,init_vel)
+lowest_vel = min(init_vel)*3.6; % Specify lowest velocity [km/h]
 vehicle = vehicles(v_id);
 num_vehicles = length(vehicles);
 
@@ -488,8 +482,8 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
 %            disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
         end
         if vehicle.trailing_var.brake
-            vx = max_acc*vehicle.parameters.sample_time;
-            if vehicle.velocity(1) <= 40/3.6 % CHANGE THIS TO BRAKE TO LOWEST SPEED OF VEHICLE INFRONT
+            vx = vehicle.velocity(1) - max_deacc*vehicle.parameters.sample_time;
+            if vehicle.velocity(1) <= lowest_vel/3.6
                 vehicle.trailing_var.brake = false;
             end
         end

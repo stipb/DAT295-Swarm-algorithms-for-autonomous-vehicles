@@ -1,5 +1,7 @@
 %% Calculate fuel consumption
 
+% !! RUN AFTER SIMULATION !!
+
 x_vel = velocities(:,:,1); % Get velocity in x-axis
 acc = diff(x_vel); % Calculate acceleration
 instFuelConsp = zeros(size(acc)); % init matrix
@@ -30,7 +32,9 @@ for v_idx = 1:num_vehicles
     legend_str = [legend_str; 'Vehicle ' v_str];
 end
 legend(legend_str)
-xlabel('Time [s]'), ylabel('Fuel consumption')
+xlabel('Time [s]'), ylabel('Fuel consumption [mg]')
+totalFuel = sum(sum(instFuelConsp))/1000;
+disp(['Total fuel consumption: ' num2str(totalFuel) ' [g]'])
 %%
 function tmp = instFuelConsump(s,a)
 % Coefficients
