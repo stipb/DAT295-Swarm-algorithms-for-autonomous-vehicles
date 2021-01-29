@@ -19,7 +19,7 @@ for v_idx = 1:num_vehicles
     else
         style = '--';
     end
-    plot(time(2:end),instFuelConsp(:,v_idx,1)*3.6,'Color',cmap(v_idx, :),'Linestyle',style); % plot
+    plot(time(2:end),instFuelConsp(:,v_idx,1),'Color',cmap(v_idx, :),'Linestyle',style); % plot
     % Make sure each row has the same size
     if v_idx < 10
         v_str = ['0' num2str(v_idx)];
@@ -30,28 +30,28 @@ for v_idx = 1:num_vehicles
     legend_str = [legend_str; 'Vehicle ' v_str];
 end
 legend(legend_str)
-xlabel('Time [s]'), ylabel('Velocity [km/h]')
+xlabel('Time [s]'), ylabel('Fuel consumption')
 %%
-function MOE_e = instFuelConsump(s,a)
+function tmp = instFuelConsump(s,a)
 % Coefficients
-coeff_pos = [-0.87605 0.03627 -0.00045 2.55e-06;
-            0.081221 0.009246 -0.00046 4.00e-06;
-            0.037039 -0.00618 2.96e-04 -1.86e-06;
-            -0.00255 0.000468 -1.79e-05 3.86e-08];
-coeff_neg = [-0.75584 0.021283 -0.00013 7.39e-07;
-            -0.00921 0.011364 -0.0002 8.45e-08;
-            0.036223 0.000226 4.03e-08 -3.5e-08;
-            0.003968 -9e-05 2.42e-06 -1.6e-08];
+coeff_pos = [-0.87605 0.03627 -0.00045 2.55e-6;
+            0.081221 0.009246 -0.00046 4.00e-6;
+            0.037039 -0.00618 2.96e-4 -1.86e-6;
+            -0.00255 0.000468 -1.79e-5 3.86e-8];
+coeff_neg = [-0.75584 0.021283 -0.00013 7.39e-7;
+            -0.00921 0.011364 -0.0002 8.45e-7;
+            0.036223 0.000226 4.03e-8 -3.5e-8;
+            0.003968 -9e-5 2.42e-6 -1.6e-8];
 % Estimate fuel consumption
-MOE_e = 0;
+tmp = 0;
 for i=1:4
     for j=1:4
         if a >= 0
-            MOE_e = MOE_e + coeff_pos(i,j)*s^i*a^j;
+            tmp = tmp + coeff_pos(j,i)*s^(i-1)*a^(j-1);
         else
-            MOE_e = MOE_e + coeff_neg(i,j)*s^i*a^j;
+            tmp = tmp + coeff_neg(j,i)*s^(i-1)*a^(j-1);
         end
     end
 end
-MOE_e = exp(MOE_e);
+tmp = exp(tmp);
 end
