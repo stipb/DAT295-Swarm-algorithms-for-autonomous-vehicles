@@ -1,11 +1,11 @@
 %% Multi vehicle simulation
 close all
 
-load('test_cases/test_case_crash')
+load('test_cases/test_case_rnd')
 
 % Flags
 save_data = true; % Flag to save data
-timed = false; % Try to match loop time with actual time
+timed = true; % Try to match loop time with actual time
 % - Define vehicle -
 max_acc = 2.5; % [m/s^2] max acceleration
 max_deacc = 5; % [m/s^2] max deacceleration
@@ -82,6 +82,7 @@ for v_idx=1:num_vehicles
         'parameters',struct('lane',lane(v_idx),'desired_vel',init_vel(v_idx),'conn',init_conn(v_idx),'sample_time',sample_time,'max_range',60,'vel_tresh',10),...
         'messages',zeros(1,num_vehicles),... % Outgoing messages to other vehicles (each cell corresponds to a destination vehicle)
         'lastDecline',0,...
+        'lastChangeTry',0,...
         'platoon_members',zeros(1,num_vehicles),...
         'isLeader', false,...
         'target',0,...
@@ -194,7 +195,7 @@ for t_idx = 2:numel(time) % simulation loop
     if ~isempty(cl_ids) % Change lane
         for i=1:length(cl_ids)
             if t_idx == cl_times(i)
-                vehicles(cl_ids(i)) = change_lane(vehicles(cl_ids(i)), mod(vehicles(cl_ids(i)).parameters.lane,2)+1);
+                vehicles(cl_ids(i)) = change_lane(vehicles(cl_ids(i)), mod(vehicles(cl_ids(i)).parameters.lane,2)+1,time(t_idx));
                 vehicles(cl_ids(i)).parameters.lane = mod(vehicles(cl_ids(i)).parameters.lane,2)+1; % Change lane
                 vehicles(cl_ids(i)).lane_keeping_var.isChangingLane = true;
                 disp(['Vehicle ' num2str(cl_ids(i)) ' changed lane.'])
@@ -286,7 +287,7 @@ switch vehicle.parameters.conn
                 switch vehicles(v_idx).messages(v_id)
                     case 1 % Other vehicle asks us to change lane
                         if vehicle.target == 0 && vehicle.isLeader == false % Is not following
-                            vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1); % Try to change lane
+                            vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1,time); % Try to change lane
 %                             disp(['Vehicle ' num2str(v_id) ' changes lane to ' num2str(vehicle.parameters.lane)])
                         else
                             % Decline and answer the asking vehicle
@@ -297,7 +298,7 @@ switch vehicle.parameters.conn
                         disp(['Vehicle ' num2str(v_id) ' got declined, change lane'])
                         % Try to change lane
                         vehicle.lastDecline = time; % save timepoint for timeout
-                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1);
+                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1,time);
                     case 3 % Notified to join platoon
                             vehicle.platoon_members(v_idx) = true; % Add that vehicle
                             vehicle.isLeader = true;
@@ -310,11 +311,17 @@ switch vehicle.parameters.conn
                             vehicle.isLeader = false;
                         end
                     case 5 %Notified by target that it has another target
-                        if vehicle.target == v_idx % Check that the message is from our target
-                            vehicle.target = vehicles(v_idx).target; % Update our target
-                            vehicle.messages(v_idx) = 4; % Notify old target to leave platoon
-                            vehicle.messages(vehicle.target) = 3; % Notify new target to join platoon
-%                             disp(['Vehicle ' num2str(v_id) ' changes target to ' num2str(vehicle.target)])
+                        if vehicle.target == v_idx && vehicles(v_idx).target ~= 0% Check that the message is from our target and verify
+                            diff_d_vel = vehicles(vehicles(v_idx).target).parameters.desired_vel - vehicle.parameters.desired_vel;
+                            if abs(diff_d_vel) <=vehicle.parameters.vel_tresh/3.6  % check if within desired velocity
+                                vehicle.target = vehicles(v_idx).target; % Update our target
+                                vehicle.messages(v_idx) = 4; % Notify old target to leave platoon
+                                vehicle.messages(vehicle.target) = 3; % Notify new target to join platoon
+%                                 disp(['Vehicle ' num2str(v_id) ' changes target to ' num2str(vehicle.target)])
+                            else
+                                vehicle.target = 0; % Remove target
+                                vehicle.messages(v_idx) = 4; % Notify old target to leave platoon
+                            end
                         end
                 end
                 vehicles(v_idx).messages(v_id) = 0; % reset value
@@ -323,10 +330,10 @@ switch vehicle.parameters.conn
         if vehicle.target ~= 0 % Do checks if conn is still established and if targets are correct
             vehicle.isLeader = false;
             % Check if conn established
-            if vehicles(vehicle.target).parameters.conn == false
+            if vehicles(vehicle.target).parameters.conn == false % Conn disabled
                 vehicle.target = 0;
             else
-                 % Check if someone targets me while i already have a target
+                % Check if someone targets me while i already have a target
                 for v_idx = 1:num_vehicles % Get who targets me
                     if vehicles(v_idx).target == v_id
                         vehicle.messages(v_idx) = 5; % Notify that vehicle
@@ -338,7 +345,7 @@ switch vehicle.parameters.conn
         min_diff_d_vel = 1000;
         min_idx = -1;
         % Get target
-        if vehicle.target == 0 % Check if vehicle already have a target
+        if vehicle.target == 0 && time > 7% Check if vehicle already have a target
             for v_idx = 1:num_vehicles %
                 if v_idx == v_id || vehicles(v_idx).parameters.conn == false
                     continue; % Skip ourselfs or for those with no conn
@@ -364,13 +371,9 @@ switch vehicle.parameters.conn
             vehicle.messages(vehicle.target) = 3; % notify target
 %             disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
         end
+        
         % Follow target
-
         if vehicle.target ~= 0
-            if vehicle.parameters.lane ~= vehicles(vehicle.target).parameters.lane &&...
-                    vehicles(vehicle.target).pose(1)-vehicle.pose(1) < 50 % Change lane to target if within <50m
-                vehicle = change_lane(vehicle,vehicles(vehicle.target).parameters.lane); % Try to change lane
-            end
             % Check if there is other vehicles between us and the leader
             % if so follow that one
             rel_pose = 1000*ones(1,num_vehicles);
@@ -383,7 +386,11 @@ switch vehicle.parameters.conn
                 end
             end
             [~, idx] = min(rel_pose);
-            
+            % Change lane
+            if vehicle.parameters.lane ~= vehicles(idx).parameters.lane &&...
+                    vehicles(idx).pose(1)-vehicle.pose(1) < 50 %&& ~vehicle.lane_keeping_var.isChangingLane % Change lane to target if within <50m
+                vehicle = change_lane(vehicle,vehicles(idx).parameters.lane,time); % Try to change lane
+            end
             % Check if vehicle is at target
             if vehicle.target ~= 0 && vehicle.timings.timeGotTarget ~=0 && vehicle.timings.timeToTarget == 0
                 time_headway = (vehicles(idx).pose(1) - vehicle.pose(1))/vehicle.velocity(1);
@@ -478,45 +485,46 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
         else
             ttc = vehicle.detections(idx_curr,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_curr,1)); %% ttc with sensor
         end
-        if ttc < 3.5 && ttc > 0 && vehicle.lane_keeping_var.isChangingLane &&...
-                isInSameLane(vehicle,vehicles(idx))
+        if vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx)) &&...
+                ((abs(vehicle.detections(idx_curr,2)) > pi/2 && ttc < 3 && ttc > 0) || (ttc < 5 && ttc > 0) )
            % Cancel lane change manouver if ttc low
            vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
            vehicle.trailing_var.brake = true;
-%            disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
+           vehicle.lastChangeTry = time;
+           disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
         end
         if abs(vehicle.detections(idx_curr,2)) < pi/16 % Check if vehicle is in front
-            if ttc < 3 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))                        
+            if ((ttc < 3 && ttc > 0) || vehicle.detections(idx_curr,1) < 4) && isInSameLane(vehicle,vehicles(idx))                        
                     velocity_proceeding_veh = (vehicle.detections_prev(idx_prev,1)- vehicle.detections(idx_curr,1))/vehicle.parameters.sample_time;
                     a = 0.23*(vehicle.detections(idx_curr,1)-vehicle.trailing_var.t_hw*vehicle.velocity(1)) + ...
                         0.07*(velocity_proceeding_veh);
                     vx = vehicle.velocity(1) + a*vehicle.parameters.sample_time; % Calculate velocity
-                    if ttc > 5.5 && isInSameLane(vehicle,vehicles(idx)) && vehicles(vehicle.target).platoon_members(idx) == false
-                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1); % Try to change lane
-%                         disp(['Vehicle ' num2str(v_id) ' changes lane to ' num2str(vehicle.parameters.lane) ' Vehicle ' num2str(idx) ' is too close' ])
+                    if vehicle.target ~=0 && vehicles(vehicle.target).platoon_members(idx) == false
+                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1,time); % Try to change lane
+                        disp(['Vehicle ' num2str(v_id) ' changes lane to ' num2str(vehicle.parameters.lane) ' Vehicle ' num2str(idx) ' is too close' ])
                     end                   
-            elseif ttc < 4 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
+            elseif ttc < 5 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
                 if vehicle.parameters.conn
                     % Connection
                     if vehicles(idx).parameters.conn && vehicle.target ~= 0 &&...
                             vehicles(vehicle.target).platoon_members(idx) == false &&...
                             time < time_out + vehicle.lastDecline % Make sure it is not in the same platoon
-%                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
+                        disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     elseif vehicles(idx).parameters.conn && vehicle.isLeader == true &&...
                             vehicle.trailing_var.brake == false && time > time_out + vehicle.lastDecline % If leader ask vehicle to change lane 
-%                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
+                        disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     elseif vehicle.target == 0 || vehicles(vehicle.target).platoon_members(idx) == false
-%                     disp(['Vehicle ' num2str(v_id) ' changes lane'])
+                    disp(['Vehicle ' num2str(v_id) ' changes lane'])
                     % Try to change lane
-                    vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1);
+                    vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1,time);
                     end
                 else
                     %Connectionless
-%                     disp(['Vehicle ' num2str(v_id) ' changes lane'])
+                    disp(['Vehicle ' num2str(v_id) ' changes lane'])
                     % Try to change lane
-                    vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1);
+                    vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1,time);
                 end
             end
         end
@@ -524,10 +532,10 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
 end
 %  Brake vehicle
 if vehicle.trailing_var.brake
-    vx = vehicle.velocity(1) - max_deacc*vehicle.parameters.sample_time;
-    if vehicle.velocity(1) <= (lowest_vel)/3.6
+%     vx = vehicle.velocity(1) - max_deacc*vehicle.parameters.sample_time;
+%     if vehicle.velocity(1) <= (lowest_vel)/3.6
         vehicle.trailing_var.brake = false;
-    end
+%     end
 end
 % Limit acceleration
 acc = diff([vehicle.velocity(1), vx]);
