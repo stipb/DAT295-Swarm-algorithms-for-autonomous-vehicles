@@ -1,13 +1,13 @@
 %% Run random tests continuesly and save values
 clear all, close all
-test_name = 'testGroup1';
-number_of_tests = 2;
-number_of_vehicles = [10 11 12 14 15];
+test_name = 'testGroup_test';
+number_of_tests = 1;
+number_of_vehicles = [4 5 6 7 8 9 10 14 15];
 sample_time = 0.05; % Time step [s]
-sim_length = 100; % Simulation time [s]
+sim_length = 70; % Simulation time [s]
 
-min_vel = 40;
-max_vel = 90;
+min_vel = 40; %[km/h]
+max_vel = 90; %[km/h]
 max_angle = pi/32;
 
 % init_conn = init_conn-1;
@@ -68,12 +68,12 @@ for test = 1:length(number_of_vehicles)
             % Save data
             data.(['Tests_with_' num2str(num_vehicles) '_vehicles']).(['Test_' num2str(test_iteration)]).conn= ...
                 struct('Throughput',throughput,'FuelConsumptionTot',totalFuel,'FuelConsumptionPVeh',...
-                totalFuel/num_vehicles,'MeanTimeToTarget',mean(timeToTarget),'Velocities',velocities);
+                totalFuel/num_vehicles,'MeanTimeToTarget',mean(timeToTarget),'Velocities',velocities,'num_vehicles',num_vehicles);
         catch ex
             % Save data
             data.(['Tests_with_' num2str(num_vehicles) '_vehicles']).(['Test_' num2str(test_iteration)]).conn= ...
                 struct('Throughput',0,'FuelConsumptionTot',0,'FuelConsumptionPVeh',...
-                0,'MeanTimeToTarget',0,'Velocities',[]);
+                0,'MeanTimeToTarget',0,'Velocities',[],'num_vehicles',num_vehicles);
         end
         % Run simulation (no conn)
         init_conn = false(1,num_vehicles);
@@ -82,11 +82,11 @@ for test = 1:length(number_of_vehicles)
             % Save data
             data.(['Tests_with_' num2str(num_vehicles) '_vehicles']).(['Test_' num2str(test_iteration)]).noConn= ...
                 struct('Throughput',throughput,'FuelConsumptionTot',totalFuel,'FuelConsumptionPVeh',...
-                totalFuel/num_vehicles,'MeanTimeToTarget',mean(timeToTarget),'Velocities',velocities);
+                totalFuel/num_vehicles,'MeanTimeToTarget',mean(timeToTarget),'Velocities',velocities,'num_vehicles',num_vehicles);
         catch ex
             data.(['Tests_with_' num2str(num_vehicles) '_vehicles']).(['Test_' num2str(test_iteration)]).noConn= ...
                 struct('Throughput',0,'FuelConsumptionTot',0,'FuelConsumptionPVeh',...
-                0,'MeanTimeToTarget',0,'Velocities',[]);
+                0,'MeanTimeToTarget',0,'Velocities',[],'num_vehicles',num_vehicles);
         end
     end
 end

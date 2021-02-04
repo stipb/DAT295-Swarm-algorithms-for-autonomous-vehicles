@@ -1,8 +1,8 @@
 %% Create tests with this script
 clear all
-test_name = 'test_case_rnd';
+test_name = 'test_case_5v';
 % - Init -
-num_vehicles = 18;
+num_vehicles = 13;
 sample_time = 0.05; % Time step [s]
 sim_length = 100; % Simulation time [s]
 
@@ -14,7 +14,7 @@ init_vel = [15.8710169600455,16.6407066601574,16.6677742411436,13.3874766434682,
 init_ang = [-0.0751946446522755,-0.0244077912330841,0.00301734643632373,0.0651627850984710,-0.0751946446522755,-0.0244077912330841,0.00301734643632373,0.0651627850984710,-0.0345143379407278,-0.0694066456346387,0.0975563115026982,-0.00160883834274084,0.0641335536524731,0.0846485701119370,0.000753998307452555]; % Starting angle for vehicles
 
 lane = [1,2,1,1,2,2,2,1,1,2,2,1,1,1,2]; % Which lane the vehicles should drive in
-init_conn = [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]; % Set if vehicles should have communcation enabled
+% init_conn = [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]; % Set if vehicles should have communcation enabled
 % init_conn = init_conn-1;
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
@@ -28,6 +28,7 @@ max_angle = pi/32;
         init_vel = zeros(1,num_vehicles);
         init_ang = zeros(1,num_vehicles);
         lane = zeros(1,num_vehicles);
+        init_conn = ones(1,num_vehicles);
         for v_idx = 1:num_vehicles
             % Random x position
             init_x_position(v_idx) = (480-5).*rand(1,1) + 5;
