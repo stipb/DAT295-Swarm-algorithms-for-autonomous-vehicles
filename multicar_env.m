@@ -510,7 +510,7 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
            vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
 %            vehicle.trailing_var.brake = true;
            vehicle.lastChangeTry = time;
-           disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
+%            disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
         end
         if abs(vehicle.detections(idx_curr,2)) < pi/16 % Check if vehicle is in front
             if ((ttc < 4 && ttc > 0) || vehicle.detections(idx_curr,1) < 6) && isInSameLane(vehicle,vehicles(idx))                        

@@ -1,10 +1,10 @@
 %% Run random tests continuesly and save values
 clear all, close all
 test_name = 'testGroup_test';
-number_of_tests = 1;
-number_of_vehicles = [4 5 6 7 8 9 10 14 15];
+number_of_tests = 10;
+number_of_vehicles = [4 5 6 7 8 9 10 11 12 13 14 15];
 sample_time = 0.05; % Time step [s]
-sim_length = 70; % Simulation time [s]
+sim_length = 80; % Simulation time [s]
 
 min_vel = 40; %[km/h]
 max_vel = 90; %[km/h]
@@ -70,7 +70,7 @@ for test = 1:length(number_of_vehicles)
                 struct('Throughput',throughput,'FuelConsumptionTot',totalFuel,'FuelConsumptionPVeh',...
                 totalFuel/num_vehicles,'MeanTimeToTarget',mean(timeToTarget),'Velocities',velocities,'num_vehicles',num_vehicles);
         catch ex
-            % Save data
+            disp('---Test crashed---')
             data.(['Tests_with_' num2str(num_vehicles) '_vehicles']).(['Test_' num2str(test_iteration)]).conn= ...
                 struct('Throughput',0,'FuelConsumptionTot',0,'FuelConsumptionPVeh',...
                 0,'MeanTimeToTarget',0,'Velocities',[],'num_vehicles',num_vehicles);
@@ -84,6 +84,7 @@ for test = 1:length(number_of_vehicles)
                 struct('Throughput',throughput,'FuelConsumptionTot',totalFuel,'FuelConsumptionPVeh',...
                 totalFuel/num_vehicles,'MeanTimeToTarget',mean(timeToTarget),'Velocities',velocities,'num_vehicles',num_vehicles);
         catch ex
+            disp('---Test crashed---')
             data.(['Tests_with_' num2str(num_vehicles) '_vehicles']).(['Test_' num2str(test_iteration)]).noConn= ...
                 struct('Throughput',0,'FuelConsumptionTot',0,'FuelConsumptionPVeh',...
                 0,'MeanTimeToTarget',0,'Velocities',[],'num_vehicles',num_vehicles);
