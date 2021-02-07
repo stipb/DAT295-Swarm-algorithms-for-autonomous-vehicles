@@ -7,14 +7,8 @@ if ~isempty(vehicle.detections)
             changeLane = false;
         end
     end
-    if changeLane
-        vehicle.parameters.lane = target_lane; % Change to target lane
-        vehicle.lane_keeping_var.isChangingLane = true;
-    else
-%         vehicle.trailing_var.brake = true;
-%         disp('Cancelled manouver')
-    end
-else
+end
+if changeLane
     vehicle.parameters.lane = target_lane; % Change to target lane
     vehicle.lane_keeping_var.isChangingLane = true;
 end

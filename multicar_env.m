@@ -2,12 +2,12 @@
 close all
 
 % COMMENT THIS IF RUNNING AUTOMATIC TESTS!
-% clear all
-% load('test_cases/test_case_rnd') 
+clear all
+load('test_cases/test_case_8v') 
 
 % Flags
 save_data = true; % Flag to save data
-timed = false; % Try to match loop time with actual time
+timed = true; % Try to match loop time with actual time
 % - Define vehicle -
 max_acc = 2.5; % [m/s^2] max acceleration
 max_deacc = 5; % [m/s^2] max deacceleration
@@ -508,7 +508,6 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                 %((abs(vehicle.detections(idx_curr,2)) > pi/2 && ttc < 2 && ttc > 0) || (abs(vehicle.detections(idx_curr,2)) < pi/2 && ttc < 4 && ttc > 0) )
            % Cancel lane change manouver if ttc low
            vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
-%            vehicle.trailing_var.brake = true;
            vehicle.lastChangeTry = time;
 %            disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
         end
@@ -530,8 +529,8 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                             time < time_out + vehicle.lastDecline % Make sure it is not in the same platoon
 %                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
-                    elseif vehicles(idx).parameters.conn && vehicle.isLeader == true &&...
-                            vehicle.trailing_var.brake == false && time > time_out + vehicle.lastDecline % If leader ask vehicle to change lane 
+                    elseif vehicles(idx).parameters.conn && vehicle.isLeader &&...
+                            time > time_out + vehicle.lastDecline % If leader ask vehicle to change lane 
 %                         disp(['Vehicle ' num2str(v_id) ' ask ' num2str(idx) ' to change lane'])
                         vehicle.messages(idx) = 1;
                     elseif vehicle.target == 0 || vehicles(vehicle.target).platoon_members(idx) == false
@@ -547,13 +546,6 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                 end
             end
         end
-    end
-end
-%  Brake vehicle
-if vehicle.trailing_var.brake
-    vx = vehicle.velocity(1) - max_deacc*vehicle.parameters.sample_time;
-    if vehicle.velocity(1) <= (lowest_vel)/3.6
-        vehicle.trailing_var.brake = false;
     end
 end
 % Limit acceleration

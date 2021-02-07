@@ -6,20 +6,30 @@ v = 0:0.5:140;
 c = 1;
 figure
 for i=1:length(v)
-    MOE_e = instFuelConsump(v(i)*c,a*1);
+    MOE_e = instFuelConsump(v(i)*c,a*1)/(0.7389*1000);
     plot(v(i),MOE_e,'r.'), hold on
 end
 a = 0.9;
 for i=1:length(v)
-    MOE_e = instFuelConsump(v(i)*c,a*1);
+    MOE_e = instFuelConsump(v(i)*c,a*1)/(0.7389*1000);
     plot(v(i),MOE_e,'b.'), hold on
 end
 a = 0.0;
 for i=1:length(v)
-    MOE_e = instFuelConsump(v(i)*c,a*1);
+    MOE_e = instFuelConsump(v(i)*c,a*1)/(0.7389*1000);
     plot(v(i),MOE_e,'m.'), hold on
 end
-ylim([0 180])
+v = 0:0.5:40;
+a = -1:0.062:4;
+MOE_e = zeros(length(v),length(v));
+for i=1:length(v)
+    for j=1:length(a)
+        MOE_e(i,j) = instFuelConsump(v(i)/3.6,a(j))/(0.7389*1000);
+    end
+end
+figure
+plot3(a,v,MOE_e)
+ylim([0 0.012])
 function tmp = instFuelConsump(s,a)
 % Coefficients
 coeff_pos = [-0.87605 0.03627 -0.00045 2.55e-6;

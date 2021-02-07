@@ -1,7 +1,7 @@
 %% Plots test data
 clear all, close all
 
-load('test_data/testGroup1')
+load('test_data/copy')
 %%
 % meanThroughput_conn = [];
 % meanFuelConsumptionTot_conn = [];
@@ -25,7 +25,7 @@ FuelConsumptionTot_noConn  = zeros(nmr_tests,nmr_cases);
 FuelConsumptionPVeh_noConn  = zeros(nmr_tests,nmr_cases);
 
 num_vehicles = zeros(nmr_tests,nmr_cases);
-
+crash = 0;
 %Extract data
 for i=1:nmr_cases % cases
     fn_test = fieldnames(data.(fn{i}));
@@ -34,20 +34,21 @@ for i=1:nmr_cases % cases
         d_noConn = data.(fn{i}).(fn_test{j}).noConn;
         if d_conn.Throughput ~= 0
             Throughput_conn(j,i) = d_conn.Throughput*60; % [vehicles/min]
-            FuelConsumptionTot_conn(j,i) = d_conn.FuelConsumptionTot; %[g]
-            FuelConsumptionPVeh_conn(j,i) = d_conn.FuelConsumptionPVeh; %[g/vehicle]
+            FuelConsumptionTot_conn(j,i) = d_conn.FuelConsumptionTot/(0.7389*1000); %[l]
+            FuelConsumptionPVeh_conn(j,i) = d_conn.FuelConsumptionPVeh/(0.7389*1000); %[l/vehicle]
             TimeToTarget_conn(j,i) = d_conn.MeanTimeToTarget; % [s]
 
             Throughput_noConn(j,i) = d_noConn.Throughput*60; % [vehicles/min]
-            FuelConsumptionTot_noConn(j,i) = d_noConn.FuelConsumptionTot; %[g]
-            FuelConsumptionPVeh_noConn(j,i) =  d_noConn.FuelConsumptionPVeh; %[g/vehicle]
-            
+            FuelConsumptionTot_noConn(j,i) = d_noConn.FuelConsumptionTot/(0.7389*1000); %[l]
+            FuelConsumptionPVeh_noConn(j,i) =  d_noConn.FuelConsumptionPVeh/(0.7389*1000); %[l/vehicle]
+        else
+            crash = crash + 1;
              
         end
        num_vehicles(j,i) = d_conn.num_vehicles; 
     end
 end
-
+crash
 %% calc mean and variance
 Throughput_conn_mean = zeros(1,nmr_cases);
 FuelConsumptionTot_conn_mean = zeros(1,nmr_cases);
@@ -104,7 +105,7 @@ ax.XTick = num_vehicles(1,:);
 figure
 errorbar(num_vehicles(1,:),FuelConsumptionTot_conn_mean,sqrt(FuelConsumptionTot_conn_var),'x'), hold on
 errorbar(num_vehicles(1,:),FuelConsumptionTot_noConn_mean,sqrt(FuelConsumptionTot_noConn_var),'x')
-xlabel('Number of vehicles'), ylabel('Total fuel consumption [g]')
+xlabel('Number of vehicles'), ylabel('Total fuel consumption [L]')
 legend('Connection','No connection','Location','southeast')
 ax = gca;
 ax.XTick = num_vehicles(1,:);

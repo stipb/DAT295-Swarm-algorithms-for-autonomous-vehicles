@@ -1,8 +1,8 @@
 %% Create tests with this script
 clear all
-test_name = 'test_case_5v';
+test_name = 'test_case_8v';
 % - Init -
-num_vehicles = 13;
+num_vehicles = 8;
 sample_time = 0.05; % Time step [s]
 sim_length = 100; % Simulation time [s]
 
