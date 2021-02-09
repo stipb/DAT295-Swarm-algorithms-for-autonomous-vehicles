@@ -1,7 +1,7 @@
 %% Plots test data
 clear all, close all
 
-load('test_data/copy')
+load('test_data/testGroup_final')
 %%
 % meanThroughput_conn = [];
 % meanFuelConsumptionTot_conn = [];
@@ -37,13 +37,15 @@ for i=1:nmr_cases % cases
             FuelConsumptionTot_conn(j,i) = d_conn.FuelConsumptionTot/(0.7389*1000); %[l]
             FuelConsumptionPVeh_conn(j,i) = d_conn.FuelConsumptionPVeh/(0.7389*1000); %[l/vehicle]
             TimeToTarget_conn(j,i) = d_conn.MeanTimeToTarget; % [s]
-
+        else
+            crash = crash + 1;
+        end
+        if d_noConn.Throughput ~= 0
             Throughput_noConn(j,i) = d_noConn.Throughput*60; % [vehicles/min]
             FuelConsumptionTot_noConn(j,i) = d_noConn.FuelConsumptionTot/(0.7389*1000); %[l]
             FuelConsumptionPVeh_noConn(j,i) =  d_noConn.FuelConsumptionPVeh/(0.7389*1000); %[l/vehicle]
         else
             crash = crash + 1;
-             
         end
        num_vehicles(j,i) = d_conn.num_vehicles; 
     end

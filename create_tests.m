@@ -1,19 +1,19 @@
 %% Create tests with this script
 clear all
-test_name = 'test_case_2';
+test_name = 'test_case_test';
 % - Init -
 num_vehicles = 4;
 sample_time = 0.05; % Time step [s]
-sim_length = 25; % Simulation time [s]
+sim_length = 40; % Simulation time [s]
 
 % Set initial settnings for each vehicle:
-init_x_position = [10 30 55 80];
-init_y_position = [24 24 24 24];
+init_x_position = [10 30 80 100];
+init_y_position = [26 26 24 24];
 
-init_vel = [60 56 56 60]/3.6; % Initial velocity for vehicles
+init_vel = [66 80 75 60]/3.6; % Initial velocity for vehicles
 init_ang = [0 0 0 0]; % Starting angle for vehicles
 
-lane = [1,1,1,1]; % Which lane the vehicles should drive in
+lane = [2,2,1,1]; % Which lane the vehicles should drive in
 init_conn = [true,true,true,true]; % Set if vehicles should have communcation enabled
 % init_conn = init_conn-1;
 % Fill in these variables for events that happen during simulation
@@ -47,8 +47,8 @@ init_conn = [true,true,true,true]; % Set if vehicles should have communcation en
 %% Code events
 % _ids: what car
 % _times: at what time (make sure it's possible with sample_time)
-bc_ids = [2 3];
-bc_times = [13 14];
+bc_ids = [];
+bc_times = [];
 
 % Enable communication
 ec_ids = [];

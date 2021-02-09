@@ -3,7 +3,7 @@ close all
 
 % COMMENT THIS IF RUNNING AUTOMATIC TESTS!
 % clear all
-% load('test_cases/test_case_3') 
+% load('test_cases/test_case_test') 
 
 % Flags
 save_data = true; % Flag to save data
@@ -345,12 +345,13 @@ switch vehicle.parameters.conn
                 end
             end
         end
-        %Init var for choosing targets
-        min_diff_d_vel = 1000;
-        min_idx = -1;
-        min_diff_pos = 1000;
+        
+        min_idx = -1; % Keeps track of best vehicle
         % Get target
-        if vehicle.target == 0 && time > 7% Check if vehicle already have a target
+        if time > 7% Wait 7 seconds, avoids crashes at start of random tests
+            %Init var for choosing targets
+            min_diff_d_vel = 1000;
+            min_diff_pos = 1000;
             for v_idx = 1:num_vehicles %
                 if v_idx == v_id || vehicles(v_idx).parameters.conn == false
                     continue; % Skip ourselfs or for those with no conn
@@ -362,31 +363,48 @@ switch vehicle.parameters.conn
                 % Save vehicle with lowest relative velocity within a
                 % certain range
                 % if (diff_pose < min_diff_pos) && (diff_pose < vehicle.parameters.max_range) && (abs(diff_d_vel) <=vehicle.parameters.vel_tresh/3.6) &&...
-                if (diff_d_vel < min_diff_d_vel) && (diff_pose < vehicle.parameters.max_range) && (abs(diff_d_vel) <=vehicle.parameters.vel_tresh/3.6) &&...
-                        (diff_pose >= 0) && ~(diff_pose < 50 && ~isInSameLane(vehicle,vehicles(v_idx)))
-                    if vehicles(v_idx).target ~= 0 % if that vehicle already has a target, check if vel within range
-                        diff_d_vel_target = vehicles(vehicles(v_idx).target).parameters.desired_vel - vehicle.parameters.desired_vel;
-                        if abs(diff_d_vel_target) <=vehicle.parameters.vel_tresh/3.6  
+                if (abs(diff_d_vel) < min_diff_d_vel) && (diff_pose < vehicle.parameters.max_range) && (abs(diff_d_vel) <=vehicle.parameters.vel_tresh/3.6) &&...
+                        (diff_pose >= 0)
+
+                    % Make sure a vehicle doesnt pick a target while it's
+                    % followers are in the way.
+                    if vehicles(v_idx).target == 0
+                        hold_num = sum(vehicles(v_idx).platoon_members); % Get how many members are in the platoon
+                    else
+                        hold_num = sum(vehicles(vehicles(v_idx).target).platoon_members); % Get how many members are in the platoon
+                    end
+                    if ~(diff_pose < 15*hold_num && ~isInSameLane(vehicle,vehicles(v_idx)))% hold distance 15*hold_num
+                        if vehicles(v_idx).target ~= 0 % if that vehicle already has a target, check if vel within range
+                            diff_d_vel_target = vehicles(vehicles(v_idx).target).parameters.desired_vel - vehicle.parameters.desired_vel;
+                            if abs(diff_d_vel_target) <=vehicle.parameters.vel_tresh/3.6  
+                                min_diff_d_vel = diff_d_vel;
+                                min_idx = v_idx;
+    %                             min_diff_pos = diff_pose;
+    %                             min_idx = v_idx;
+                            end
+                        else
                             min_diff_d_vel = diff_d_vel;
                             min_idx = v_idx;
-%                             min_diff_pos = diff_pose;
-%                             min_idx = v_idx;
+    %                         min_diff_pos = diff_pose;
+    %                         min_idx = v_idx;
                         end
-                    else
-                        min_diff_d_vel = diff_d_vel;
-                        min_idx = v_idx;
-%                         min_diff_pos = diff_pose;
-%                         min_idx = v_idx;
                     end
                 end
             end
         end
         %Update
         if  min_idx ~= -1
-            if vehicle.timings.timeGotTarget == 0 % Make sure the timer isn't reset after teleport
+            if vehicle.timings.timeGotTarget == 0 % Reset timer
                 vehicle.timings.timeGotTarget = time; % Start timer to measure how long it takes to reach target
             end
-            vehicle.target = min_idx;
+            if vehicle.target ~= 0 % Already had a target
+                vehicle.messages(vehicle.target) = 4; % notify old target that i leave
+            end
+            if vehicles(min_idx).target == 0
+                vehicle.target = min_idx;
+            else % New target have a target, change to that one.
+                vehicle.target = vehicles(min_idx).target;
+            end
             vehicle.messages(vehicle.target) = 3; % notify target
 %             disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
         end
@@ -406,17 +424,19 @@ switch vehicle.parameters.conn
             end
             [~, idx] = min(rel_pose);
             % Change lane
-            slow_down = 1;
             if vehicle.parameters.lane ~= vehicles(idx).parameters.lane &&...
                     vehicles(idx).pose(1)-vehicle.pose(1) < 60 && ~vehicle.lane_keeping_var.isChangingLane % Change lane to target if within <60m
                 [vehicle, changeLane] = change_lane(vehicle,vehicles(idx).parameters.lane); % Try to change lane
                 if ~changeLane
                     % If lane change fails, other car propably in the way,
+                    vehicle.messages(vehicle.target) = 4; % Notify old target to leave platoon
                     vehicle.target = 0; % Remove target
-                    vehicle.messages(v_idx) = 4; % Notify old target to leave platoon
+                else
+%                    disp(['Vehicle ' num2str(v_id) ' changes lane to target lane']) 
                 end
             end
             % Check if vehicle is at target
+
             if vehicle.target ~= 0 && vehicle.timings.timeGotTarget ~=0 && vehicle.timings.timeToTarget == 0
                 time_headway = (vehicles(idx).pose(1) - vehicle.pose(1))/vehicle.velocity(1);
                 if time_headway < vehicle.trailing_var.t_hw_conn+2.5 &&  time_headway > 0 && isInSameLane(vehicle,vehicles(vehicle.target))
@@ -430,11 +450,9 @@ switch vehicle.parameters.conn
                     end
                 end
             end
-            
             % CACC
             err_f = vehicles(idx).pose(1) - vehicle.pose(1) - vehicle.trailing_var.t_hw_conn*vehicle.velocity(1); % e_k = x_k-1 - x_k - t_hw*v_k
             vx = vehicle.velocity_prev(1) + vehicle.trailing_var.kp*err_f + vehicle.trailing_var.kd*diff([vehicle.trailing_var.error err_f]); % vk_prev + k_p*e_k + k_d*e_k
-            vx = vx*slow_down;
             vehicle.trailing_var.error = err_f;
         else % drive with acc
             vx = vehicle.parameters.desired_vel; % Set defualt speed
@@ -494,6 +512,7 @@ switch vehicle.parameters.conn
             end
         end
 end
+
 w = lane_keeper(vehicle); % Get turn angle from lane keeper
 % Detect and react to close vehicles
 if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
@@ -510,12 +529,15 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
         else
             ttc = vehicle.detections(idx_curr,1)*vehicle.parameters.sample_time/(vehicle.detections_prev(idx_prev,1)-vehicle.detections(idx_curr,1)); %% ttc with sensor
         end
-         if vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx)) && ttc < 5 && ttc > 0%...
+        if abs(vehicle.detections(idx_curr,2)) > pi/2 % If idx behind, flip direction
+            ttc = -ttc;
+        end
+        if vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx)) && ttc < 5 && ttc > 0%...
             %&& abs(vehicle.detections(idx_curr,2)) > pi/16 %&& ttc < 2 && ttc > 0) || (abs(vehicle.detections(idx_curr,2)) < pi/2 && ttc < 4 && ttc > 0) )
             % Cancel lane change manouver if ttc low
             vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
             vehicle.lastChangeTry = time;
-            %            disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
+%             disp(['Vehicle ' num2str(v_id) ' canceled manouver due to low ttc'])
         end
         if abs(vehicle.detections(idx_curr,2)) < pi/16 % Check if vehicle is in front
             if ((ttc < 4 && ttc > 0) || vehicle.detections(idx_curr,1) < 6) && isInSameLane(vehicle,vehicles(idx))                        
@@ -524,9 +546,12 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
                         0.07*(velocity_proceeding_veh);
 
                     vx = vehicle.velocity(1) + a*vehicle.parameters.sample_time; % Calculate velocity
-                    if ttc < 4 && ttc > 0 && (vehicle.target ==0 || (vehicle.target ~=0 && vehicles(vehicle.target).platoon_members(idx) == false))
-                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1); % Try to change lane
-%                         disp(['Vehicle ' num2str(v_id) ' changes lane to ' num2str(vehicle.parameters.lane) ' Vehicle ' num2str(idx) ' is too close' ])
+                    if ttc < 4 && ttc > 0 && (vehicle.target ==0 || (vehicle.target ~=0 ...
+                        && vehicles(vehicle.target).platoon_members(idx) == false)) && ~vehicle.lane_keeping_var.isChangingLane
+                        [vehicle, changeLane] = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1); % Try to change lane
+                        if ~changeLane
+%                             disp(['Vehicle ' num2str(v_id) ' changes lane to ' num2str(vehicle.parameters.lane) '.  Vehicle ' num2str(idx) ' is too close' ])
+                        end
                     end                   
             elseif ttc < 5 && ttc > 0 && isInSameLane(vehicle,vehicles(idx))
                 if vehicle.parameters.conn
