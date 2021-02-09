@@ -1,11 +1,14 @@
 %% Run random tests continuesly and save values
 clear all, close all
-test_name = 'testGroup_test';
-number_of_tests = 10;
-number_of_vehicles = [4 5 6 7 8 9 10 11 12 13 14 15];
+test_name = 'testGroup_final';
+number_of_tests = 1;
+number_of_vehicles = [13 14 15];
 sample_time = 0.05; % Time step [s]
 sim_length = 80; % Simulation time [s]
-
+% number_of_tests = 10;
+% number_of_vehicles = [4 5 6 7 8 9 10 11 12 13 14 15];
+% sample_time = 0.05; % Time step [s]
+% sim_length = 80; % Simulation time [s]
 min_vel = 40; %[km/h]
 max_vel = 90; %[km/h]
 max_angle = pi/32;

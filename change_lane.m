@@ -1,4 +1,4 @@
-function vehicle = change_lane(vehicle, target_lane)
+function [vehicle, changeLane] = change_lane(vehicle, target_lane)
 %CHANGE_LANE Checks for vehicles before changing lane
 changeLane = true;
 if ~isempty(vehicle.detections)
