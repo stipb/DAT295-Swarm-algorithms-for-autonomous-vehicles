@@ -7,7 +7,7 @@ close all
 
 % Flags
 save_data = true; % Flag to save data
-timed = true; % Try to match loop time with actual time
+timed = false; % Try to match loop time with actual time
 % - Define vehicle -
 max_acc = 2.5; % [m/s^2] max acceleration
 max_deacc = 5; % [m/s^2] max deacceleration

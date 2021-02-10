@@ -1,17 +1,17 @@
 %% Run random tests continuesly and save values
 clear all, close all
 test_name = 'testGroup_final';
-number_of_tests = 1;
-number_of_vehicles = [5 6 7 8 9];
+number_of_tests = 10;
+number_of_vehicles = [5 6 7 8 9 10 11 12 13 14 15];
 sample_time = 0.05; % Time step [s]
-sim_length = 40; % Simulation time [s]
+sim_length = 100; % Simulation time [s]
 % number_of_tests = 10;
 % number_of_vehicles = [4 5 6 7 8 9 10 11 12 13 14 15];
 % sample_time = 0.05; % Time step [s]
 % sim_length = 80; % Simulation time [s]
 min_vel = 40; %[km/h]
 max_vel = 90; %[km/h]
-max_angle = pi/32;
+max_angle = pi/64;
 
 % init_conn = init_conn-1;
 % Fill in these variables for events that happen during simulation
@@ -95,3 +95,5 @@ for test = 1:length(number_of_vehicles)
     end
 end
 save(['test_data/' test_name],'data')
+disp(['Saved ' test_name])
+disp('---DONE---')
