@@ -1,7 +1,7 @@
 %% Plots test data
 clear all, close all
 
-load('test_data/testGroup_final')
+load('test_data/testGroup_final_many')
 %%
 % meanThroughput_conn = [];
 % meanFuelConsumptionTot_conn = [];
@@ -26,10 +26,12 @@ FuelConsumptionPVeh_noConn  = zeros(nmr_tests,nmr_cases);
 
 num_vehicles = zeros(nmr_tests,nmr_cases);
 crash = 0;
+counter = 0;
 %Extract data
 for i=1:nmr_cases % cases
     fn_test = fieldnames(data.(fn{i}));
     for j=1:nmr_tests % test per case
+        counter = counter +2;
         d_conn = data.(fn{i}).(fn_test{j}).conn;
         d_noConn = data.(fn{i}).(fn_test{j}).noConn;
         if d_conn.Throughput ~= 0
@@ -50,7 +52,7 @@ for i=1:nmr_cases % cases
        num_vehicles(j,i) = d_conn.num_vehicles; 
     end
 end
-crash
+disp([num2str(crash) ' crashes of ' num2str(counter) ' tests [' num2str((crash/counter)*100) '%]'])
 %% calc mean and variance
 Throughput_conn_mean = zeros(1,nmr_cases);
 FuelConsumptionTot_conn_mean = zeros(1,nmr_cases);
@@ -100,6 +102,7 @@ errorbar(num_vehicles(1,:),Throughput_conn_mean,sqrt(Throughput_conn_var),'x'), 
 errorbar(num_vehicles(1,:),Throughput_noConn_mean,sqrt(Throughput_noConn_var),'x')
 xlabel('Number of vehicles'), ylabel('Throughput [vehicles/min]')
 legend('Connection','No connection','Location','southeast')
+xlim([num_vehicles(1,1)-1, num_vehicles(1,end)+1])
 ax = gca;
 ax.XTick = num_vehicles(1,:);
 
@@ -109,6 +112,7 @@ errorbar(num_vehicles(1,:),FuelConsumptionTot_conn_mean,sqrt(FuelConsumptionTot_
 errorbar(num_vehicles(1,:),FuelConsumptionTot_noConn_mean,sqrt(FuelConsumptionTot_noConn_var),'x')
 xlabel('Number of vehicles'), ylabel('Total fuel consumption [L]')
 legend('Connection','No connection','Location','southeast')
+xlim([num_vehicles(1,1)-1, num_vehicles(1,end)+1])
 ax = gca;
 ax.XTick = num_vehicles(1,:);
 
@@ -116,6 +120,6 @@ ax.XTick = num_vehicles(1,:);
 figure
 errorbar(num_vehicles(1,:),TimeToTarget_conn_mean,sqrt(TimeToTarget_conn_var),'x')
 xlabel('Number of vehicles'), ylabel('Time to target [s]')
+xlim([num_vehicles(1,1)-1, num_vehicles(1,end)+1])
 ax = gca;
 ax.XTick = num_vehicles(1,:);
-
