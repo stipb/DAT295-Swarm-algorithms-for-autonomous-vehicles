@@ -20,7 +20,7 @@ To run automatic tests run the file [runRandomTests.m](runRandomTests.m). Before
 
 ### Configure simulation
 
-**Flags:**  
+**Flags (in [multicar_env.m](multicar_env.m)):**  
 ```matlab  
 save_as_video = true; % Saves a recording of the test.  
 save_data = true; % Saves data and runs fuel consumption algorithm.  
