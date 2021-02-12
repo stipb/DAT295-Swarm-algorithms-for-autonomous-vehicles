@@ -2,17 +2,22 @@
 close all
 
 % COMMENT THIS IF RUNNING AUTOMATIC TESTS!
-% clear all
-% load('test_cases/test_case_test') 
+clear all
 
+load('test_cases/test_case_9') 
 % Flags
+save_as_video = true;
 save_data = true; % Flag to save data
-timed = false; % Try to match loop time with actual time
+timed = true; % Try to match loop time with actual time
 % - Define vehicle -
 max_acc = 2.5; % [m/s^2] max acceleration
 max_deacc = 5; % [m/s^2] max deacceleration
 f_length = 1;     % Distance from CG to front wheels [m]
-
+% - init video recorder - 
+if save_as_video
+    vidObj = VideoWriter(['video_files/' test_name],'MPEG-4');
+    open(vidObj)
+end
 % - Create environment -
 env = MultiRobotEnv(num_vehicles);
 env.robotRadius = f_length;
@@ -238,8 +243,14 @@ for t_idx = 2:numel(time) % simulation loop
     if timed && a < sample_time
         pause(sample_time-a)
     end
+    if save_as_video
+    	% Get it as an avi-frame
+    	F = getframe(gcf);
+        % Add the frame to the avi
+        writeVideo(vidObj,F);
+    end
 end
-
+close(vidObj)
 %% Plot data
 if save_data == true
     disp('-- Results --')
@@ -252,9 +263,8 @@ if save_data == true
 end
 %% Vehicle controller
 function vehicles = swarmVehicleController(vehicles,v_id,max_acc, max_deacc,time,init_vel)
-lowest_vel = min(init_vel)*3.6; % Specify lowest velocity [km/h]
 time_out = 3; % ask for lane change timeout [s]
-vehicle = vehicles(v_id);
+vehicle = vehicles(v_id); % Get current vehicle
 num_vehicles = length(vehicles);
 
 % Check if lane change is complete
@@ -276,16 +286,15 @@ switch vehicle.parameters.conn
             if v_idx == v_id
                 continue; % Skip ourselfs
             end
-            % 1 = Incoming request to change lane
-            % 2 = Request to change lane denied
-            % 3 = Notified to join platoon
-            % 4 = Notified to leave platoon
-            % 5 = Notified by target that it has a other target
-            % If in platoon the leader will update all the other vehicles
-            % in the platoon of who is present.
-            
             if vehicles(v_idx).messages(v_id) ~= 0 %Check for incoming message
                 % Message received
+                % 1 = Incoming request to change lane
+                % 2 = Request to change lane denied
+                % 3 = Notified to join platoon
+                % 4 = Notified to leave platoon
+                % 5 = Notified by target that it has a other target
+                % If in platoon the leader will update all the other vehicles
+                % in the platoon of who is present.
                 switch vehicles(v_idx).messages(v_id)
                     case 1 % Other vehicle asks us to change lane
                         if vehicle.target == 0 && ~vehicle.isLeader && ~vehicle.lane_keeping_var.isChangingLane% Is not following and not currently changing lane
@@ -300,22 +309,24 @@ switch vehicle.parameters.conn
                         end
                     case 2 % Vehicle declines our request
 %                         disp(['Vehicle ' num2str(v_id) ' got declined, change lane'])
-                        % Try to change lane
                         vehicle.lastDecline = time; % save timepoint for timeout
-                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1);
+                        vehicle = change_lane(vehicle, mod(vehicle.parameters.lane,2)+1);% Try to change lane
                     case 3 % Notified to join platoon
                             vehicle.platoon_members(v_idx) = true; % Add that vehicle
-                            vehicle.isLeader = true;
+                            vehicle.isLeader = true; % Set ourselfs to leader
                             vehicle.platoon_members(v_id) = true; % Add ourelfs
                     case 4 % Notified to leave platoon
-                        vehicle.platoon_members(v_idx) = false;
+                        vehicle.platoon_members(v_idx) = false; % Remove that member
+                        
+                        % Check if there is still other members in platoon
                         platoon_members_temp = vehicle.platoon_members;
                         platoon_members_temp(v_id) = 0;
                         if  ~any(platoon_members_temp) % No vehicles in platoon
-                            vehicle.isLeader = false;
+                            vehicle.isLeader = false; % Remove ourselfs as leader
                         end
                     case 5 %Notified by target that it has another target
                         if vehicle.target == v_idx && vehicles(v_idx).target ~= 0% Check that the message is from our target and verify
+                            % it has another target
                             diff_d_vel = vehicles(vehicles(v_idx).target).parameters.desired_vel - vehicle.parameters.desired_vel;
                             if abs(diff_d_vel) <=vehicle.parameters.vel_tresh/3.6  % check if within desired velocity
                                 vehicle.target = vehicles(v_idx).target; % Update our target
@@ -397,13 +408,13 @@ switch vehicle.parameters.conn
             if vehicle.timings.timeGotTarget == 0 % Reset timer
                 vehicle.timings.timeGotTarget = time; % Start timer to measure how long it takes to reach target
             end
-            if vehicle.target ~= 0 % Already had a target
+            if vehicle.target ~= 0 % Already have a target
                 vehicle.messages(vehicle.target) = 4; % notify old target that i leave
             end
-            if vehicles(min_idx).target == 0
-                vehicle.target = min_idx;
+            if vehicles(min_idx).target == 0 % New target doesn't have a target
+                vehicle.target = min_idx; % Update our target.
             else % New target have a target, change to that one.
-                vehicle.target = vehicles(min_idx).target;
+                vehicle.target = vehicles(min_idx).target; % Update to that vehicle.
             end
             vehicle.messages(vehicle.target) = 3; % notify target
 %             disp(['Vehicle ' num2str(v_id) ' targets ' num2str(min_idx)])
@@ -436,7 +447,6 @@ switch vehicle.parameters.conn
                 end
             end
             % Check if vehicle is at target
-
             if vehicle.target ~= 0 && vehicle.timings.timeGotTarget ~=0 && vehicle.timings.timeToTarget == 0
                 time_headway = (vehicles(idx).pose(1) - vehicle.pose(1))/vehicle.velocity(1);
                 if time_headway < vehicle.trailing_var.t_hw_conn+2.5 &&  time_headway > 0 && isInSameLane(vehicle,vehicles(vehicle.target))
@@ -532,8 +542,7 @@ if ~isempty(vehicle.detections) && ~isempty(vehicle.detections_prev)
         if abs(vehicle.detections(idx_curr,2)) > pi/2 % If idx behind, flip direction
             ttc = -ttc;
         end
-        if vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx)) && ttc < 5 && ttc > 0%...
-            %&& abs(vehicle.detections(idx_curr,2)) > pi/16 %&& ttc < 2 && ttc > 0) || (abs(vehicle.detections(idx_curr,2)) < pi/2 && ttc < 4 && ttc > 0) )
+        if vehicle.lane_keeping_var.isChangingLane && isInSameLane(vehicle,vehicles(idx)) && ttc < 5 && ttc > 0
             % Cancel lane change manouver if ttc low
             vehicle.parameters.lane = mod(vehicle.parameters.lane,2)+1;
             vehicle.lastChangeTry = time;
