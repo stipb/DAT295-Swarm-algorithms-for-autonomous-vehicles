@@ -17,11 +17,14 @@ max_angle = pi/64;
 % Fill in these variables for events that happen during simulation
 % leave variables as empties if no event should occur. 
 
-% Break communication
+%%
+% _ids: what vehicle
+% _times: at what time (make sure it's possible with sample_time).
+% Break connection
 bc_ids = [];
 bc_times = [];
 
-% Enable communication
+% Enable connection
 ec_ids = [];
 ec_times = [];
 

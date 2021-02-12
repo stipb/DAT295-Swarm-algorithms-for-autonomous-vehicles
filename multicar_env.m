@@ -3,10 +3,9 @@ close all
 
 % COMMENT THIS IF RUNNING AUTOMATIC TESTS!
 clear all
-
 load('test_cases/test_case_9') 
 % Flags
-save_as_video = true;
+save_as_video = false;
 save_data = true; % Flag to save data
 timed = true; % Try to match loop time with actual time
 % - Define vehicle -

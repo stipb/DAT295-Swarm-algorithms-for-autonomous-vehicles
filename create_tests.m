@@ -45,7 +45,7 @@ init_conn = [true,true,true,true]; % Set if vehicles should have communcation en
 %         end
 
 %% Code events
-% _ids: what car
+% _ids: what vehicle
 % _times: at what time (make sure it's possible with sample_time)
 
 % Break connection
