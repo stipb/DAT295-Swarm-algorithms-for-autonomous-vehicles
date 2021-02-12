@@ -11,7 +11,7 @@ Tested on MATLAB 2020b.
 2. Make sure you also have installed the requried toolboxes, see: https://se.mathworks.com/matlabcentral/fileexchange/66586-mobile-robotics-simulation-toolbox.
 ## Usage
 
-[multicar_env.m](multicar_env.m) contains the simulation and swarm control. To run a certain add to line(5-6):
+[multicar_env.m](multicar_env.m) contains the simulation and swarm control. To run a certain test case add the following to line(5-6):
 ```matlab
 clear all
 load('test_cases/test_case_#')
